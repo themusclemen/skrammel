@@ -52,13 +52,13 @@ export default function App() {
 
   const navigate = useCallback((next) => setScreen(next), []);
 
-  const handleGameFinish = useCallback(async (score, words) => {
+  const handleGameFinish = useCallback(async (score, words, levelTimes) => {
     setLastResult({ score, words });
     setScreen("result");
     // Gäster spelar men syns inte på topplistan.
     if (user) {
       const name = displayName ?? user.email.split("@")[0];
-      await submitScore(user.id, todayStr(), score, words, name);
+      await submitScore(user.id, todayStr(), score, words, name, levelTimes);
     }
   }, [user, displayName]);
 

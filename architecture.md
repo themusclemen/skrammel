@@ -175,15 +175,37 @@ att t.ex. visa ett facit i appen senare — inte byggt än.
 
 ---
 
+## Backend: Supabase-projekt `skrammel-beta`
+
+Ett riktigt Supabase-projekt finns nu (namngivet `skrammel-beta`, samma
+mönster som minikors). Schema skapat via `supabase/schema.sql`
+(`daily_words`, `scores`, `profiles`, se "Datamodell" ovan). Email-auth
+med "Confirm email" avstängt (samma beta-onboarding-genväg som
+minikors — annars slår Supabase's gratis-e-postkvot i taket direkt).
+
+Verifierat end-to-end med Playwright mot det riktiga projektet: konto
+skapas och loggar in direkt (`POST /auth/v1/signup` → 200 med
+access token), spela-loop fungerar, `POST /rest/v1/scores` → 201, och
+resultatet dyker upp korrekt på `/leaderboard`. `.env` (gitignorad)
+innehåller `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` lokalt.
+
+**Städbehov:** ett par testkonton (`skrammel-test-*@mailinator.com`)
+och deras poster i `scores` ligger kvar i `skrammel-beta` från
+verifieringen — inget jag kan rensa själv med bara anon-nyckeln (kräver
+service role-nyckel eller Supabase-dashboarden: Authentication → Users,
+och Table editor → scores). Städa innan riktiga betatestare bjuds in.
+
 ## Lokal körning utan backend
 
 `src/supabase.js` exporterar `isSupabaseConfigured` (sant bara om både
 `VITE_SUPABASE_URL` och `VITE_SUPABASE_ANON_KEY` är satta). Om ingen
 `.env`-fil finns är `supabase` `null`, och alla anrop som annars hade
-träffat Supabase kortsluts istället:
+träffat Supabase kortsluts istället — praktiskt för andra som klonar
+repot utan att behöva Supabase-nycklar direkt:
 
 - `App.jsx` sätter `user = null` direkt (ingen `getSession()`-väntan)
-- `api/dailyWord.js` → `FALLBACK_WORD` ("ANDROID")
+- `api/dailyWord.js` → `FALLBACK_WORD` (aktuellt värde i
+  `src/game/constants.js`, ändras ofta under utveckling/test)
 - `api/scores.js` → `submitScore` no-op, `fetchLeaderboard` → `[]`
 - `api/profile.js` → `fetchDisplayName` → `null`
 - `AuthScreen` visar "Inloggning ej tillgänglig" istället för ett
@@ -193,19 +215,20 @@ Verifierat i browser (Playwright-smoketest): hemskärm, spela-loop
 (giltigt/ogiltigt ord ger rätt feedback), topplista (tomt-state) och
 auth-skärmen fungerar alla utan `.env`, inga konsolfel.
 
-**Nästa steg när en riktig backend ska kopplas på:** skapa ett
-Supabase-projekt (som `minikors-beta`), kör upp tabellerna nedan, och
-fyll i `.env` enligt `.env.example`.
-
 ---
 
 ## Öppna beslut / att göra härnäst
 
-1. Sätt upp ett riktigt Supabase-projekt för Skrammel när vi vill börja
-   testa inloggning/topplista på riktigt.
-2. Bestäm hur dagens källord väljs/kureras (ordlistan och
+1. Koppla GitHub-repot (`themusclemen/skrammel`, privat) till Vercel —
+   sista steget i deploy-kedjan, se `~/.claude/plans/twinkly-splashing-glacier.md`
+   för hela planen. `vercel.json` har redan SPA-rewrite på plats.
+2. Städa testkonton/testresultat i `skrammel-beta` (se ovan) innan
+   riktiga betatestare bjuds in.
+3. Bestäm hur dagens källord väljs/kureras (ordlistan och
    kureringsscriptet finns nu — processen för att faktiskt välja och
-   publicera ett ord per dag är inte byggd).
-3. Ordlistan är fortfarande inte 100% genomgången — den kan innehålla
+   publicera ett ord per dag är inte byggd). `daily_words`-tabellen är
+   tom, så appen kör på `FALLBACK_WORD` tills en rad finns för dagens
+   datum.
+4. Ordlistan är fortfarande inte 100% genomgången — den kan innehålla
    ovanliga böjningsformer eller enstaka konstigheter som dyker upp
    under spel. Justera `public/ordlista.txt` vid behov.

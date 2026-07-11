@@ -1,36 +1,68 @@
 import { T } from "../theme.js";
 
-const MAX_BAR_HEIGHT = 130; // px
+// En färg per ordlängd (2 upp till längsta hittabara ordet), regnbågsordning
+// som i mockupen — cyklar om källordet ger fler längder än paletten.
+const LENGTH_COLORS = [
+  "#b39ddb", // violett
+  "#7ec8f2", // blå
+  "#5fd0c4", // teal
+  "#7bd88f", // grön
+  "#f2a65a", // orange
+  "#f26d6d", // röd
+  "#f2618a", // rosa
+  "#c98be0", // lavendel
+];
 
-// En stapel per ordlängd (2 upp till längsta hittabara ordet för dagens
-// källord). Stapelns höjd = hur många ord av den längden som *går att hitta*
-// totalt, den ifyllda delen = hur många spelaren redan *har* hittat.
-export default function WordLengthHistogram({ totalByLength, foundByLength, highlightLength }) {
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Ett piller per ordlängd, format "längd:kvar". Fyllnadsgraden i pillret
+// (vänster→höger) motsvarar hur stor andel av den längdens ord man redan
+// hittat. Pillret man precis hittat ett ord i får dessutom en kort glöd +
+// en liten pil under sig i ~1s (styrs av highlightLength/GameScreen).
+export default function WordLengthHistogram({ totalByLength, foundByLength, highlightLength, onSelectLength }) {
   const maxLength = Math.max(2, ...Object.keys(totalByLength).map(Number));
   const lengths = [];
   for (let length = 2; length <= maxLength; length++) lengths.push(length);
 
-  const maxCount = Math.max(1, ...Object.values(totalByLength));
-
   return (
     <div style={styles.row}>
-      {lengths.map((length) => {
+      {lengths.map((length, i) => {
         const total = totalByLength[length] ?? 0;
         const foundCount = Math.min(foundByLength[length] ?? 0, total);
-        // Ingen tvingad minsta höjd — finns inga ord av en längd ska stapeln vara helt tom.
-        const barHeight = total > 0 ? Math.max(Math.round((total / maxCount) * MAX_BAR_HEIGHT), 4) : 0;
-        const fillHeight = total > 0 ? Math.round((foundCount / total) * barHeight) : 0;
+        const remaining = total - foundCount;
+        const isEmpty = total === 0;
         const isHighlighted = length === highlightLength;
+        const isComplete = !isEmpty && remaining === 0;
+        const color = isEmpty ? T.muted : LENGTH_COLORS[i % LENGTH_COLORS.length];
+        const fillPct = isEmpty ? 0 : Math.round((foundCount / total) * 100);
+        const fillOpacity = isComplete ? 0.55 : 0.32;
 
         return (
           <div key={length} style={styles.column}>
-            <div style={{ ...styles.count, ...(isHighlighted ? styles.countHighlight : null) }}>
-              {foundCount}/{total}
-            </div>
-            <div style={{ ...styles.track, height: barHeight, ...(isHighlighted ? styles.trackHighlight : null) }}>
-              <div style={{ ...styles.fill, height: fillHeight }} />
-            </div>
-            <div style={{ ...styles.label, ...(isHighlighted ? styles.labelHighlight : null) }}>{length}</div>
+            <button
+              onClick={() => onSelectLength(length)}
+              style={{
+                ...styles.pill,
+                borderColor: isEmpty ? T.border : color,
+                color,
+                boxShadow: isHighlighted ? `0 0 14px ${color}` : "none",
+              }}
+            >
+              <div
+                style={{
+                  ...styles.fill,
+                  width: `${fillPct}%`,
+                  background: isEmpty ? "transparent" : hexToRgba(color, fillOpacity),
+                }}
+              />
+              <span style={styles.pillText}>{length}:{remaining}</span>
+            </button>
+            <div style={{ ...styles.arrow, borderTopColor: isHighlighted ? color : "transparent" }} />
           </div>
         );
       })}
@@ -39,20 +71,24 @@ export default function WordLengthHistogram({ totalByLength, foundByLength, high
 }
 
 const styles = {
-  row: { display: "flex", flexWrap: "nowrap", alignItems: "flex-end", gap: "0.5rem", width: "100%" },
-  column: { display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", flex: "1 1 0", minWidth: 0 },
-  count: {
-    fontSize: "0.8rem", color: T.muted, fontVariantNumeric: "tabular-nums",
-    transition: "color 0.2s ease",
+  row: { display: "flex", flexWrap: "nowrap", gap: "0.4rem", width: "100%" },
+  column: { display: "flex", flexDirection: "column", alignItems: "center", flex: "1 1 0", minWidth: 0 },
+  pill: {
+    position: "relative", width: "100%", textAlign: "center", padding: "0.45rem 0.2rem",
+    borderRadius: 999, border: "2px solid", overflow: "hidden",
+    transition: "box-shadow 0.2s ease", background: "transparent", cursor: "pointer",
+    fontFamily: "inherit",
   },
-  countHighlight: { color: T.accent, fontWeight: 700 },
-  track: {
-    width: "100%", borderRadius: 8, background: T.tileEmpty,
-    display: "flex", alignItems: "flex-end", overflow: "hidden",
-    transition: "background 0.2s ease, box-shadow 0.2s ease",
+  fill: {
+    position: "absolute", left: 0, top: 0, bottom: 0,
+    transition: "width 0.4s ease, background 0.2s ease",
   },
-  trackHighlight: { background: T.accent, boxShadow: `0 0 14px ${T.accent}` },
-  fill: { width: "100%", background: T.accent, transition: "height 0.3s ease" },
-  label: { fontSize: "1.05rem", color: T.text, fontWeight: 700, transition: "color 0.2s ease" },
-  labelHighlight: { color: T.accent },
+  pillText: {
+    position: "relative", fontWeight: 700, fontSize: "0.9rem", fontVariantNumeric: "tabular-nums",
+    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+  },
+  arrow: {
+    width: 0, height: 0, marginTop: 3,
+    borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "6px solid transparent",
+  },
 };

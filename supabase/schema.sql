@@ -28,6 +28,9 @@ create table scores (
   score int not null,
   words_found jsonb not null default '[]'::jsonb,
   display_name text,
+  -- { "Dagens utmaning": 42, "PROFFS": 88, ... } — sekunder från spelstart
+  -- när respektive nivå nåddes. Underlag för framtida topplistor per nivå.
+  level_times jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 

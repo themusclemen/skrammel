@@ -6,8 +6,11 @@ import { evaluateGuess, GuessResult } from "../game/evaluateGuess.js";
 import { totalScore } from "../game/scoring.js";
 import { findWordsInSource } from "../game/findWords.js";
 import { getDictionary } from "../game/wordList.js";
+import { computeLevelTargets } from "../game/levels.js";
 import { playClickSound, playFanfareSound } from "../audio/sounds.js";
 import WordLengthHistogram from "../components/WordLengthHistogram.jsx";
+import ChallengeBar from "../components/ChallengeBar.jsx";
+import WordLengthModal from "../components/WordLengthModal.jsx";
 
 function groupByLength(words) {
   const counts = {};
@@ -23,15 +26,28 @@ const FEEDBACK_MESSAGES = {
   [GuessResult.NOT_A_WORD]: "Ej godkänt ord",
 };
 
-// Brickornas bredd fylls av flexbox (verklig skärmbredd, ingen gissning).
-// Det här räknar bara ut en rimlig textstorlek utifrån en uppskattad bredd,
-// så texten inte blir för stor för smala brickor vid långa källord.
+// Källradens brickor fyller raden med flexbox (verklig skärmbredd, ingen
+// gissning). Det här räknar bara ut en rimlig textstorlek utifrån en
+// uppskattad bredd, så texten inte blir för stor för smala brickor.
 function tileMetrics(letterCount) {
   const estimatedContentWidth = 380; // px, generös uppskattning av mobilbredd
   const gap = 3; // px — snålt mellanrum, mer yta åt själva brickorna
   const estWidth = (estimatedContentWidth - (letterCount - 1) * gap) / letterCount;
   const font = Math.max(16, Math.min(28, Math.floor(estWidth * 0.5)));
   return { font, gap };
+}
+
+// Gissningsradens brickor har egen, intrinsisk storlek (inte flex-fill) —
+// stora när ordet är kort, krymper ju längre ordet blir, så hela ordet
+// alltid får plats centrerat.
+function guessTileMetrics(letterCount) {
+  const n = Math.max(letterCount, 1);
+  const availableWidth = 320; // px
+  const gap = 8; // px
+  const rawSize = (availableWidth - (n - 1) * gap) / n;
+  const size = Math.max(30, Math.min(76, rawSize));
+  const font = Math.round(size * 0.52);
+  return { size, font, gap };
 }
 
 export default function GameScreen({ sourceWord, onFinish }) {
@@ -46,7 +62,13 @@ export default function GameScreen({ sourceWord, onFinish }) {
   const [tappedIndices, setTappedIndices] = useState([]);
   const [found, setFound] = useState([]); // [{ word, score }]
   const [feedback, setFeedback] = useState(null);
+  const [modalLength, setModalLength] = useState(null);
+  const guessMetrics = useMemo(
+    () => guessTileMetrics(tappedIndices.length),
+    [tappedIndices.length]
+  );
   const foundWords = useMemo(() => new Set(found.map((f) => f.word)), [found]);
+  const lastFound = found.length > 0 ? found[found.length - 1] : null;
   const usedIndices = useMemo(() => new Set(tappedIndices), [tappedIndices]);
   const currentWord = useMemo(
     () => tappedIndices.map((i) => sourceLetters[i]).join(""),
@@ -60,6 +82,18 @@ export default function GameScreen({ sourceWord, onFinish }) {
     () => groupByLength(found.map((f) => f.word)),
     [found]
   );
+  const currentScore = totalScore(found.map((f) => f.word));
+  const totalPossibleScore = useMemo(
+    () => Object.entries(totalByLength).reduce((sum, [length, count]) => sum + Number(length) * count, 0),
+    [totalByLength]
+  );
+  const levelTargets = useMemo(
+    () => computeLevelTargets(totalPossibleScore),
+    [totalPossibleScore]
+  );
+  // Vilken tid (sekunder från spelstart) spelaren nådde varje nivå på —
+  // { [nivånamn]: elapsedSeconds } — sparas med resultatet för framtida topplistor.
+  const [levelTimes, setLevelTimes] = useState({});
   const [highlightLength, setHighlightLength] = useState(null);
   const highlightTimeoutRef = useRef(null);
   const finishedRef = useRef(false);
@@ -69,8 +103,8 @@ export default function GameScreen({ sourceWord, onFinish }) {
   const finish = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    onFinish(totalScore(found.map((f) => f.word)), found.map((f) => f.word));
-  }, [found, onFinish]);
+    onFinish(totalScore(found.map((f) => f.word)), found.map((f) => f.word), levelTimes);
+  }, [found, onFinish, levelTimes]);
 
   useEffect(() => {
     if (timeLeft <= 0) { finish(); return; }
@@ -105,6 +139,16 @@ export default function GameScreen({ sourceWord, onFinish }) {
       setHighlightLength(result.word.length);
       clearTimeout(highlightTimeoutRef.current);
       highlightTimeoutRef.current = setTimeout(() => setHighlightLength(null), 1000);
+
+      const newScore = currentScore + result.score;
+      const elapsed = GAME_DURATION_SECONDS - timeLeft;
+      setLevelTimes((prev) => {
+        const next = { ...prev };
+        for (const lvl of levelTargets) {
+          if (newScore >= lvl.target && !(lvl.name in next)) next[lvl.name] = elapsed;
+        }
+        return next;
+      });
     } else {
       setFeedback(FEEDBACK_MESSAGES[result.status]);
     }
@@ -115,48 +159,77 @@ export default function GameScreen({ sourceWord, onFinish }) {
 
   return (
     <div style={styles.page}>
-      <div style={{ ...styles.timer, color: timeLeft <= 30 ? T.accent2 : T.muted }}>
-        {minutes}:{seconds}
+      <style>{`
+        @keyframes skrammelBlink {
+          0%, 49% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
+      `}</style>
+
+      <div style={styles.titleRow}>
+        <span style={styles.sparkle}>✨</span>
+        <h1 style={styles.title}>SKRAMMEL</h1>
+        <span style={styles.sparkle}>✨</span>
       </div>
 
-      <div style={styles.foundSection}>
-        <div style={{ color: T.muted, fontSize: "0.85rem", marginBottom: "0.4rem" }}>
-          {found.length} ord · {totalScore(found.map((f) => f.word))} poäng
+      <div style={styles.statusCard}>
+        <div style={styles.statusHalf}>
+          <span style={styles.statusIcon}>⏱</span>
+          <span style={{ ...styles.statusValue, color: timeLeft <= 30 ? T.accent2 : T.text }}>
+            {minutes}:{seconds}
+          </span>
         </div>
-
-        <div style={styles.foundList}>
-          {found.map((f) => (
-            <div key={f.word} style={styles.foundChip}>
-              {f.word} <span style={{ color: T.accent }}>+{f.score}</span>
-            </div>
-          ))}
+        <div style={styles.statusDivider} />
+        <div style={styles.statusHalf}>
+          <span style={styles.statusIcon}>⭐</span>
+          <span style={styles.statusValue}>
+            {found.length} ord · {currentScore} poäng
+          </span>
         </div>
       </div>
 
-      <div style={styles.histogramSection}>
-        <div style={styles.histogramLabel}>Ord att hitta, per bokstavslängd</div>
-        <WordLengthHistogram totalByLength={totalByLength} foundByLength={foundByLength} highlightLength={highlightLength} />
+      <div style={styles.guessCenter}>
+        {tappedIndices.length === 0 ? (
+          <span style={styles.cursor}>_</span>
+        ) : (
+          <div style={{ ...styles.guessRow, gap: `${guessMetrics.gap}px` }}>
+            {tappedIndices.map((sourceIdx, pos) => (
+              <div
+                key={pos}
+                style={{
+                  ...styles.guessTile,
+                  width: guessMetrics.size, height: guessMetrics.size, fontSize: guessMetrics.font,
+                }}
+              >
+                {sourceLetters[sourceIdx]}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {lastFound && (
+          <div style={styles.lastFound}>
+            {lastFound.word} <span style={{ color: T.accent }}>+{lastFound.score}</span>
+          </div>
+        )}
+
+        <div style={styles.feedback}>{feedback}</div>
       </div>
 
       <div style={styles.bottomArea}>
-        <div style={{ ...styles.tileRow, gap: `${tileGap}px` }}>
-          {sourceLetters.map((_, slot) => {
-            const filled = slot < tappedIndices.length;
-            return (
-              <div
-                key={slot}
-                style={{
-                  ...styles.tile, fontSize: tileFont,
-                  ...(filled ? null : styles.tileUsed),
-                }}
-              >
-                {filled ? sourceLetters[tappedIndices[slot]] : ""}
-              </div>
-            );
-          })}
+        <div style={styles.challengeSection}>
+          <ChallengeBar currentScore={currentScore} levels={levelTargets} />
         </div>
 
-        <div style={styles.feedback}>{feedback}</div>
+        <div style={styles.histogramSection}>
+          <div style={styles.histogramLabel}>Ord kvar</div>
+          <WordLengthHistogram
+            totalByLength={totalByLength}
+            foundByLength={foundByLength}
+            highlightLength={highlightLength}
+            onSelectLength={setModalLength}
+          />
+        </div>
 
         <div style={{ ...styles.tileRow, gap: `${tileGap}px` }}>
           {sourceLetters.map((letter, i) => {
@@ -203,6 +276,15 @@ export default function GameScreen({ sourceWord, onFinish }) {
           </button>
         </div>
       </div>
+
+      {modalLength !== null && (
+        <WordLengthModal
+          length={modalLength}
+          total={totalByLength[modalLength] ?? 0}
+          words={found.filter((f) => f.word.length === modalLength)}
+          onClose={() => setModalLength(null)}
+        />
+      )}
     </div>
   );
 }
@@ -213,18 +295,47 @@ const styles = {
     display: "flex", flexDirection: "column", alignItems: "center", padding: "1rem 0.5rem 1.25rem",
     boxSizing: "border-box",
   },
-  timer: { fontVariantNumeric: "tabular-nums", fontSize: "1.5rem" },
-  foundSection: { marginTop: "1rem", width: "100%", maxWidth: 480, flex: 1, overflowY: "auto" },
-  histogramSection: { width: "100%", maxWidth: 480, margin: "0.5rem 0 1rem" },
-  histogramLabel: { color: T.muted, fontSize: "0.8rem", textAlign: "center", marginBottom: "0.5rem" },
-  foundList: { display: "flex", flexWrap: "wrap", gap: "0.4rem" },
-  foundChip: {
-    background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999, padding: "0.25rem 0.6rem", fontSize: "0.85rem",
+  titleRow: {
+    display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem",
+    marginBottom: "0.8rem", flexShrink: 0,
   },
-  bottomArea: { width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", alignItems: "center" },
+  title: {
+    margin: 0, fontSize: "1.7rem", fontWeight: 800, letterSpacing: "0.06em",
+    background: "linear-gradient(90deg, #b39ddb, #f2a6c9, #fdf1d6)",
+    WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent",
+  },
+  sparkle: { fontSize: "1.1rem" },
+  statusCard: {
+    width: "100%", maxWidth: 480, display: "flex", alignItems: "center",
+    background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16,
+    padding: "0.7rem 1rem", flexShrink: 0,
+  },
+  statusHalf: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" },
+  statusDivider: { width: 1, alignSelf: "stretch", background: T.border },
+  statusIcon: { fontSize: "1.1rem" },
+  statusValue: { fontSize: "1.05rem", fontWeight: 700, fontVariantNumeric: "tabular-nums", color: T.text },
+  challengeSection: { width: "100%", maxWidth: 480, marginBottom: "0.6rem", flexShrink: 0 },
+  histogramSection: { width: "100%", maxWidth: 480, margin: "0.5rem 0 1rem", flexShrink: 0 },
+  histogramLabel: { color: T.muted, fontSize: "0.8rem", textAlign: "center", marginBottom: "0.5rem" },
+  guessCenter: {
+    flex: 1, width: "100%", maxWidth: 480, minHeight: 0,
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.6rem",
+  },
+  cursor: {
+    color: T.muted, fontWeight: 700, lineHeight: 1, fontSize: "3.2rem",
+    animation: "skrammelBlink 1s steps(1, end) infinite",
+  },
+  guessRow: { display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center" },
+  guessTile: {
+    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+    background: T.tile, border: `1px solid ${T.tileBorder}`, borderRadius: 10, fontWeight: 700,
+    color: T.tileText,
+  },
+  lastFound: { color: T.muted, fontSize: "0.9rem", fontWeight: 600, textAlign: "center" },
+  bottomArea: { width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 },
   feedback: {
     color: T.accent2, fontSize: "0.9rem", fontWeight: 600, textAlign: "center",
-    minHeight: "1.3rem", margin: "0.6rem 0",
+    minHeight: "1.3rem",
   },
   tileRow: {
     display: "flex", flexWrap: "nowrap", width: "100%",

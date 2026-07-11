@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from "../supabase.js";
 
-export async function submitScore(userId, date, score, words, displayName) {
+export async function submitScore(userId, date, score, words, displayName, levelTimes) {
   if (!isSupabaseConfigured) return; // Ingen backend lokalt — inget att spara till.
 
   return supabase.from("scores").insert({
@@ -9,6 +9,7 @@ export async function submitScore(userId, date, score, words, displayName) {
     score,
     words_found: words,
     display_name: displayName,
+    level_times: levelTimes ?? {},
   });
 }
 
