@@ -11,6 +11,8 @@ import { playClickSound, playFanfareSound } from "../audio/sounds.js";
 import WordLengthHistogram from "../components/WordLengthHistogram.jsx";
 import ChallengeBar from "../components/ChallengeBar.jsx";
 import WordLengthModal from "../components/WordLengthModal.jsx";
+import GameMenuModal from "../components/GameMenuModal.jsx";
+import TimeUpModal from "../components/TimeUpModal.jsx";
 
 function groupByLength(words) {
   const counts = {};
@@ -50,7 +52,7 @@ function guessTileMetrics(letterCount) {
   return { size, font, gap };
 }
 
-export default function GameScreen({ sourceWord, onFinish }) {
+export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
   const sourceCounts = useMemo(() => letterCounts(sourceWord), [sourceWord]);
   const { font: tileFont, gap: tileGap } = useMemo(
@@ -63,6 +65,13 @@ export default function GameScreen({ sourceWord, onFinish }) {
   const [found, setFound] = useState([]); // [{ word, score }]
   const [feedback, setFeedback] = useState(null);
   const [modalLength, setModalLength] = useState(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [timeIsUp, setTimeIsUp] = useState(false);
+  // Sant när spelaren valt att fortsätta spela efter att tiden tog slut —
+  // klockan döljs och räknas inte längre. Resultatet är redan sparat vid
+  // det laget (se submitCurrentScore/timer-effekten nedan) oavsett vad
+  // spelaren väljer, så fri spelning påverkar aldrig det sparade resultatet.
+  const [freePlay, setFreePlay] = useState(false);
   const guessMetrics = useMemo(
     () => guessTileMetrics(tappedIndices.length),
     [tappedIndices.length]
@@ -97,20 +106,48 @@ export default function GameScreen({ sourceWord, onFinish }) {
   const [highlightLength, setHighlightLength] = useState(null);
   const highlightTimeoutRef = useRef(null);
   const finishedRef = useRef(false);
+  const submittedRef = useRef(false);
 
   useEffect(() => () => clearTimeout(highlightTimeoutRef.current), []);
+
+  // Sparar resultatet — men bara första gången. Anropas dels direkt när
+  // tiden går ut (oavsett vad spelaren sen väljer), dels från finish() om
+  // spelaren avslutar innan dess (t.ex. via menyn). Det som eventuellt
+  // hittas efter att tiden gått ut (fri spelning) påverkar aldrig det som
+  // redan sparats, eftersom submittedRef då redan är satt.
+  const submitCurrentScore = useCallback(() => {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+    onSubmitScore(totalScore(found.map((f) => f.word)), found.map((f) => f.word), levelTimes);
+  }, [found, onSubmitScore, levelTimes]);
 
   const finish = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
-    onFinish(totalScore(found.map((f) => f.word)), found.map((f) => f.word), levelTimes);
-  }, [found, onFinish, levelTimes]);
+    submitCurrentScore();
+    onFinish(totalScore(found.map((f) => f.word)), found.map((f) => f.word));
+  }, [found, onFinish, submitCurrentScore]);
 
   useEffect(() => {
-    if (timeLeft <= 0) { finish(); return; }
+    if (freePlay) return; // Tiden räknas inte längre i fri spelning.
+    if (timeLeft <= 0) {
+      setTimeIsUp(true);
+      submitCurrentScore();
+      return;
+    }
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(id);
-  }, [timeLeft, finish]);
+  }, [timeLeft, freePlay, submitCurrentScore]);
+
+  const handleQuitAtTimeUp = () => {
+    setTimeIsUp(false);
+    finish();
+  };
+
+  const handleContinueFreePlay = () => {
+    setTimeIsUp(false);
+    setFreePlay(true);
+  };
 
   const handleTileTap = (i) => {
     if (usedIndices.has(i)) return;
@@ -175,8 +212,8 @@ export default function GameScreen({ sourceWord, onFinish }) {
       <div style={styles.statusCard}>
         <div style={styles.statusHalf}>
           <span style={styles.statusIcon}>⏱</span>
-          <span style={{ ...styles.statusValue, color: timeLeft <= 30 ? T.accent2 : T.text }}>
-            {minutes}:{seconds}
+          <span style={{ ...styles.statusValue, color: !freePlay && timeLeft <= 30 ? T.accent2 : T.text }}>
+            {freePlay ? "∞" : `${minutes}:${seconds}`}
           </span>
         </div>
         <div style={styles.statusDivider} />
@@ -253,12 +290,11 @@ export default function GameScreen({ sourceWord, onFinish }) {
 
         <div style={styles.controlsRow}>
           <button
-            onClick={handleBackspace}
-            disabled={tappedIndices.length === 0}
-            style={{ ...styles.iconButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
-            aria-label="Ta bort sista bokstaven"
+            onClick={() => setShowMenu(true)}
+            style={styles.iconButton}
+            aria-label="Meny"
           >
-            ←
+            …
           </button>
           <button
             onClick={handleClearAll}
@@ -266,6 +302,14 @@ export default function GameScreen({ sourceWord, onFinish }) {
             style={{ ...styles.clearAllButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
           >
             RENSA
+          </button>
+          <button
+            onClick={handleBackspace}
+            disabled={tappedIndices.length === 0}
+            style={{ ...styles.iconButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
+            aria-label="Ta bort sista bokstaven"
+          >
+            ←
           </button>
           <button
             onClick={handleSubmit}
@@ -283,6 +327,22 @@ export default function GameScreen({ sourceWord, onFinish }) {
           total={totalByLength[modalLength] ?? 0}
           words={found.filter((f) => f.word.length === modalLength)}
           onClose={() => setModalLength(null)}
+        />
+      )}
+
+      {showMenu && (
+        <GameMenuModal
+          onQuit={() => { setShowMenu(false); finish(); }}
+          onResume={() => setShowMenu(false)}
+        />
+      )}
+
+      {timeIsUp && (
+        <TimeUpModal
+          score={currentScore}
+          wordCount={found.length}
+          onContinue={handleContinueFreePlay}
+          onQuit={handleQuitAtTimeUp}
         />
       )}
     </div>

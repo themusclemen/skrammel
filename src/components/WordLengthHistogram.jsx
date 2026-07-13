@@ -20,10 +20,12 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-// Ett piller per ordlängd, format "längd:kvar". Fyllnadsgraden i pillret
-// (vänster→höger) motsvarar hur stor andel av den längdens ord man redan
-// hittat. Pillret man precis hittat ett ord i får dessutom en kort glöd +
-// en liten pil under sig i ~1s (styrs av highlightLength/GameScreen).
+// Ett piller per ordlängd, format "längd:kvar". Pillret är fullt ifyllt
+// från början och töms successivt — fyllnadsgraden motsvarar hur stor
+// andel av den längdens ord som *återstår*. Pillret man precis hittat
+// ett ord i får dessutom en kort glöd + en liten pil under sig i ~1s
+// (styrs av highlightLength/GameScreen), och ett helt tömt (klarat)
+// piller glöder permanent.
 export default function WordLengthHistogram({ totalByLength, foundByLength, highlightLength, onSelectLength }) {
   const maxLength = Math.max(2, ...Object.keys(totalByLength).map(Number));
   const lengths = [];
@@ -39,7 +41,8 @@ export default function WordLengthHistogram({ totalByLength, foundByLength, high
         const isHighlighted = length === highlightLength;
         const isComplete = !isEmpty && remaining === 0;
         const color = isEmpty ? T.muted : LENGTH_COLORS[i % LENGTH_COLORS.length];
-        const fillPct = isEmpty ? 0 : Math.round((foundCount / total) * 100);
+        // Fylld från början, tömmer sig i takt med att ord hittas.
+        const fillPct = isEmpty ? 0 : Math.round((remaining / total) * 100);
         const fillOpacity = isComplete ? 0.55 : 0.32;
 
         return (
@@ -50,7 +53,11 @@ export default function WordLengthHistogram({ totalByLength, foundByLength, high
                 ...styles.pill,
                 borderColor: isEmpty ? T.border : color,
                 color,
-                boxShadow: isHighlighted ? `0 0 14px ${color}` : "none",
+                boxShadow: isHighlighted
+                  ? `0 0 14px ${color}`
+                  : isComplete
+                    ? `0 0 10px ${color}`
+                    : "none",
               }}
             >
               <div

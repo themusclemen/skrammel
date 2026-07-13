@@ -52,15 +52,19 @@ export default function App() {
 
   const navigate = useCallback((next) => setScreen(next), []);
 
-  const handleGameFinish = useCallback(async (score, words, levelTimes) => {
+  // Sparar resultatet så fort tiden går ut (eller spelaren avslutar
+  // tidigare) — oavsett om spelaren sen väljer att fortsätta utan tävling
+  // eller avsluta direkt. Navigerar INTE bort från spelskärmen.
+  const handleSubmitScore = useCallback(async (score, words, levelTimes) => {
+    if (!user) return; // Gäster spelar men syns inte på topplistan.
+    const name = displayName ?? user.email.split("@")[0];
+    await submitScore(user.id, todayStr(), score, words, name, levelTimes);
+  }, [user, displayName]);
+
+  const handleGameFinish = useCallback((score, words) => {
     setLastResult({ score, words });
     setScreen("result");
-    // Gäster spelar men syns inte på topplistan.
-    if (user) {
-      const name = displayName ?? user.email.split("@")[0];
-      await submitScore(user.id, todayStr(), score, words, name, levelTimes);
-    }
-  }, [user, displayName]);
+  }, []);
 
   const handleSignOut = useCallback(() => {
     if (isSupabaseConfigured) supabase.auth.signOut();
@@ -82,7 +86,7 @@ export default function App() {
   }
 
   if (screen === "game") {
-    return <GameScreen sourceWord={sourceWord} onFinish={handleGameFinish} />;
+    return <GameScreen sourceWord={sourceWord} onSubmitScore={handleSubmitScore} onFinish={handleGameFinish} />;
   }
 
   if (screen === "result" && lastResult) {
