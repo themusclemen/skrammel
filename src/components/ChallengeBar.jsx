@@ -9,16 +9,19 @@ const RAINBOW_FILL = "linear-gradient(90deg, #b39ddb, #7ec8f2, #5fd0c4, #7bd88f,
 // Visar aktuell nivå (t.ex. "PROFFS") och fyller upp mot NÄSTA nivås mål —
 // fyllnaden nollställs och börjar om varje gång en nivå klaras, som en
 // vanlig XP-bar. Ram + fyllnad: rörlig regnbågsgradient.
-export default function ChallengeBar({ currentScore, levels }) {
+export default function ChallengeBar({ currentScore, levels, totalPossibleScore }) {
   const nextLevel = levels.find((lvl) => currentScore < lvl.target);
   const allComplete = !nextLevel;
   const activeLevel = nextLevel ?? levels[levels.length - 1];
   const activeIndex = levels.indexOf(activeLevel);
+  const isTopLevel = activeIndex === levels.length - 1;
   const prevTarget = activeIndex > 0 ? levels[activeIndex - 1].target : 0;
   const segmentSize = activeLevel.target - prevTarget;
   const segmentProgress = allComplete
     ? 1
     : Math.min(Math.max((currentScore - prevTarget) / segmentSize, 0), 1);
+  const showTotalAsTarget = isTopLevel && allComplete && totalPossibleScore != null;
+  const displayTarget = showTotalAsTarget ? totalPossibleScore : activeLevel.target;
 
   return (
     <div style={styles.borderWrap}>
@@ -38,7 +41,8 @@ export default function ChallengeBar({ currentScore, levels }) {
           }}
         />
         <span style={styles.text}>
-          {allComplete ? "🎉 " : ""}{activeLevel.name}: {currentScore} / {activeLevel.target} poäng
+          {allComplete ? "🎉 " : ""}{activeLevel.name}: {currentScore} / {displayTarget} poäng
+          {isTopLevel && !allComplete && totalPossibleScore != null ? ` (max ${totalPossibleScore})` : ""}
         </span>
       </div>
     </div>

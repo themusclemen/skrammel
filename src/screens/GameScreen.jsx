@@ -255,7 +255,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
 
       <div style={styles.bottomArea}>
         <div style={styles.challengeSection}>
-          <ChallengeBar currentScore={currentScore} levels={levelTargets} />
+          <ChallengeBar currentScore={currentScore} levels={levelTargets} totalPossibleScore={totalPossibleScore} />
         </div>
 
         <div style={styles.histogramSection}>

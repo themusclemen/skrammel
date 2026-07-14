@@ -9,6 +9,7 @@ export const CHALLENGE_LEVELS = [
   { name: "ELIT", percent: 0.15 },
   { name: "GENI", percent: 0.2 },
   { name: "GUD", percent: 0.3 },
+  { name: "LEGENDARISK", percent: 0.4 },
 ];
 
 // Används lokalt tills daily_words-tabellen har data för dagens datum.
