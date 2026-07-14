@@ -12,12 +12,12 @@ export default function GameMenuModal({ onQuit, onResume }) {
             <div style={styles.confirmText}>
               Är du säker? Du kan inte fortsätta spela efter det här.
             </div>
-            <button onClick={onQuit} style={styles.quitButton}>Ja, avsluta</button>
+            <button onClick={onQuit} style={styles.quitButton}>Ja, ge upp</button>
             <button onClick={() => setConfirming(false)} style={styles.resumeButton}>Nej</button>
           </>
         ) : (
           <>
-            <button onClick={() => setConfirming(true)} style={styles.quitButton}>Avsluta</button>
+            <button onClick={() => setConfirming(true)} style={styles.quitButton}>Ge upp</button>
             <button onClick={onResume} style={styles.resumeButton}>Fortsätt</button>
           </>
         )}

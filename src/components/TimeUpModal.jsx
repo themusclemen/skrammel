@@ -1,7 +1,7 @@
 import { T } from "../theme.js";
 
 // Visas när tiden tar slut. Ingen backdrop-stängning — spelaren måste
-// aktivt välja Fortsätt eller Avsluta.
+// aktivt välja Fortsätt eller Ge upp.
 export default function TimeUpModal({ score, wordCount, onContinue, onQuit }) {
   return (
     <div style={styles.backdrop}>
@@ -13,7 +13,7 @@ export default function TimeUpModal({ score, wordCount, onContinue, onQuit }) {
           Fortsätt (utan tävling)
         </button>
         <button onClick={onQuit} style={styles.quitButton}>
-          Avsluta
+          Ge upp
         </button>
       </div>
     </div>
