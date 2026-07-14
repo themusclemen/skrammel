@@ -247,7 +247,11 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   });
 
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
-  const seconds = String(timeLeft % 60).padStart(2, "0");
+  const secondsPart = timeLeft % 60;
+  const seconds = String(secondsPart).padStart(2, "0");
+  // Klockan blinkar 10 sekunder kring varje hel minut som passeras
+  // (t.ex. 5:00 ner till 4:50), inklusive vid spelstart.
+  const isMinuteBlink = !freePlay && (secondsPart === 0 || secondsPart >= 50);
 
   return (
     <div style={styles.page}>
@@ -271,7 +275,11 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
       <div style={styles.statusCard}>
         <div style={styles.statusHalf}>
           <span style={styles.statusIcon}>⏱</span>
-          <span style={{ ...styles.statusValue, color: !freePlay && timeLeft <= 30 ? T.accent2 : T.text }}>
+          <span style={{
+            ...styles.statusValue,
+            color: !freePlay && timeLeft <= 30 ? T.accent2 : T.text,
+            animation: isMinuteBlink ? "skrammelBlink 1s steps(1, end) infinite" : "none",
+          }}>
             {freePlay ? "∞" : `${minutes}:${seconds}`}
           </span>
         </div>
