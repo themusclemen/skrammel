@@ -35,16 +35,13 @@ const FEEDBACK_MESSAGES = {
   [GuessResult.NOT_A_WORD]: "Ej godkänt ord",
 };
 
-// Källradens brickor fyller raden med flexbox (verklig skärmbredd, ingen
-// gissning). Det här räknar bara ut en rimlig textstorlek utifrån en
-// uppskattad bredd, så texten inte blir för stor för smala brickor.
-function tileMetrics(letterCount) {
-  const estimatedContentWidth = 380; // px, generös uppskattning av mobilbredd
-  const gap = 3; // px — snålt mellanrum, mer yta åt själva brickorna
-  const estWidth = (estimatedContentWidth - (letterCount - 1) * gap) / letterCount;
-  const font = Math.max(16, Math.min(28, Math.floor(estWidth * 0.5)));
-  return { font, gap };
-}
+// Källradens brickor har konstant storlek oavsett ordlängd (7 eller 10
+// bokstäver ska se lika stora ut). flex-basis sätter målstorleken; flex-shrink
+// är bara en säkerhetsventil för smala skärmar där en oflippad 7-bokstavsrad
+// annars skulle svämma över.
+const SOURCE_TILE_SIZE = "3.8rem";
+const SOURCE_TILE_FONT = "1.65rem";
+const SOURCE_TILE_GAP = 8; // px
 
 // Gissningsradens brickor har egen, intrinsisk storlek (inte flex-fill) —
 // stora när ordet är kort, krymper ju längre ordet blir, så hela ordet
@@ -62,10 +59,17 @@ function guessTileMetrics(letterCount) {
 export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
   const sourceCounts = useMemo(() => letterCounts(sourceWord), [sourceWord]);
-  const { font: tileFont, gap: tileGap } = useMemo(
-    () => tileMetrics(sourceLetters.length),
-    [sourceLetters.length]
-  );
+  // Ord på 8+ bokstäver delas på två rader så brickorna blir större och
+  // lättare att trycka på. Vid udda antal blir andra raden längre.
+  const tileRows = useMemo(() => {
+    const n = sourceLetters.length;
+    if (n < 8) return [sourceLetters.map((_, i) => i)];
+    const firstLen = Math.floor(n / 2);
+    return [
+      sourceLetters.map((_, i) => i).slice(0, firstLen),
+      sourceLetters.map((_, i) => i).slice(firstLen),
+    ];
+  }, [sourceLetters]);
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION_SECONDS);
   // Ordnad lista av index i sourceWord som är intryckta för det ord som byggs just nu.
   const [tappedIndices, setTappedIndices] = useState([]);
@@ -298,24 +302,33 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
           />
         </div>
 
-        <div style={{ ...styles.tileRow, gap: `${tileGap}px` }}>
-          {sourceLetters.map((letter, i) => {
-            const used = usedIndices.has(i);
-            return (
-              <button
-                key={i}
-                data-tile-index={i}
-                onClick={() => handleTileTap(i)}
-                disabled={used}
-                style={{
-                  ...styles.tile, fontSize: tileFont,
-                  ...(used ? styles.tileUsed : null),
-                }}
-              >
-                {used ? "" : letter}
-              </button>
-            );
-          })}
+        <div style={{ ...styles.tileRowsContainer, gap: `${SOURCE_TILE_GAP}px` }}>
+          {tileRows.map((rowIndices, rowIdx) => (
+            <div key={rowIdx} style={{ ...styles.tileRow, gap: `${SOURCE_TILE_GAP}px` }}>
+              {rowIndices.map((i, posInRow) => {
+                const letter = sourceLetters[i];
+                const used = usedIndices.has(i);
+                const isLastOfFirstRow =
+                  rowIdx === 0 && tileRows.length > 1 && posInRow === rowIndices.length - 1;
+                return (
+                  <div key={i} style={styles.tileWrap}>
+                    <button
+                      data-tile-index={i}
+                      onClick={() => handleTileTap(i)}
+                      disabled={used}
+                      style={{
+                        ...styles.tile,
+                        ...(used ? styles.tileUsed : null),
+                      }}
+                    >
+                      {used ? "" : letter}
+                    </button>
+                    {isLastOfFirstRow && <span style={styles.tileHyphen}>-</span>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
         </div>
 
         <div style={styles.controlsRow}>
@@ -435,8 +448,17 @@ const styles = {
     color: T.accent2, fontSize: "0.9rem", fontWeight: 600, textAlign: "center",
     minHeight: "1.3rem",
   },
+  tileRowsContainer: { display: "flex", flexDirection: "column", width: "100%", alignItems: "center" },
   tileRow: {
-    display: "flex", flexWrap: "nowrap", width: "100%",
+    display: "flex", flexWrap: "nowrap", width: "100%", justifyContent: "center",
+  },
+  // Positionerad absolut, utanför flödet, så den inte påverkar hur raden
+  // centreras — annars blir raden med bindestrecket omedelbart osymmetrisk
+  // jämfört med raden utan.
+  tileHyphen: {
+    position: "absolute", right: "-1.4rem", top: "50%", transform: "translateY(-50%)",
+    fontWeight: 800, color: T.text, fontSize: SOURCE_TILE_FONT, lineHeight: 1,
+    pointerEvents: "none", userSelect: "none",
   },
   controlsRow: { display: "flex", gap: "0.6rem", width: "100%", marginTop: "0.8rem" },
   iconButton: {
@@ -451,8 +473,11 @@ const styles = {
     flex: 1, height: "2.8rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
   },
+  tileWrap: {
+    flex: `0 1 ${SOURCE_TILE_SIZE}`, minWidth: 0, position: "relative",
+  },
   tile: {
-    flex: "1 1 0", minWidth: 0, height: "3.8rem",
+    width: "100%", height: SOURCE_TILE_SIZE, fontSize: SOURCE_TILE_FONT,
     display: "flex", alignItems: "center", justifyContent: "center",
     background: T.tile, border: `1px solid ${T.tileBorder}`, borderRadius: 10, fontWeight: 700,
     color: T.tileText, cursor: "pointer", padding: 0,
