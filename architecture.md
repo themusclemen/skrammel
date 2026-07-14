@@ -5,10 +5,11 @@
 Skrammel är ett dagligt svenskt ordspel för mobilen. Se `skrammel-spec.md`
 för spelregler.
 
-**Nuläge:** Grundläggande kodstruktur och skärmflöde skapat lokalt.
-Ingen Supabase-backend uppsatt än, men appen är nu robust mot det —
-den körs och har testats framgångsrikt i en riktig browser i gäst-läge
-(se "Lokal körning utan backend" nedan).
+**Nuläge:** Live, deployad app — se "Backend: Supabase-projekt
+`skrammel-beta`" nedan för hela deploy-kedjan (GitHub + Supabase +
+Vercel, allt uppsatt). Appen är samtidigt robust mot att köras helt
+utan backend (se "Lokal körning utan backend" nedan), praktiskt för
+andra som klonar repot utan Supabase-nycklar.
 
 ---
 
@@ -21,9 +22,9 @@ Samma stack som minikors (syskonprojekt, `../minikors`):
 | Frontend | React 18 + Vite |
 | Språk | JavaScript (JSX) |
 | Styling | Inline styles (temaobjekt `T` i `src/theme.js`) |
-| Backend / DB | Supabase (Postgres + auto-genererat REST API) — **projekt ej skapat än** |
+| Backend / DB | Supabase (Postgres + auto-genererat REST API) — projekt `skrammel-beta`, live |
 | Auth | Supabase Auth (email/lösenord), valfritt — gäster kan spela |
-| Hosting frontend | Vercel (planerat, ej uppsatt) |
+| Hosting frontend | Vercel — live på https://skrammel.vercel.app |
 
 ---
 
@@ -37,35 +38,48 @@ skrammel/
 │   ├── supabase.js          # Supabase-klient (läser env vars — kräver .env)
 │   ├── theme.js             # Skrammels egen visuella identitet
 │   ├── game/                # Ren spellogik, inga sidoeffekter
-│   │   ├── constants.js     # MIN_WORD_LENGTH, GAME_DURATION_SECONDS, FALLBACK_WORD
+│   │   ├── constants.js     # MIN_WORD_LENGTH, GAME_DURATION_SECONDS, FALLBACK_WORD, CHALLENGE_LEVELS, ADMIN_EMAIL
 │   │   ├── letters.js       # letterCounts, canFormWord (multiset-check)
 │   │   ├── scoring.js       # scoreForWord, totalScore, isScorable
 │   │   ├── wordList.js      # Laddar public/ordlista.txt till ett Set, isValidWord
-│   │   ├── findWords.js     # findWordsInSource — kureringshjälp + histogramdata (se nedan)
+│   │   ├── findWords.js     # findWordsInSource — kureringshjälp + histogram-/facitdata (se nedan)
+│   │   ├── levels.js        # computeLevelTargets — poängmål per nivå (se "Nivåsystem" nedan)
+│   │   ├── adminSuggest.js  # Slumpar/utvärderar källords-kandidater för adminsidan
 │   │   └── evaluateGuess.js # Kombinerar allt ovan till ett GuessResult
+│   ├── audio/
+│   │   └── sounds.js        # playClickSound, playFanfareSound
 │   ├── api/                 # Supabase-anrop, en modul per behov
-│   │   ├── dailyWord.js     # fetchTodaysWord
-│   │   ├── scores.js        # submitScore, fetchLeaderboard
-│   │   └── profile.js       # fetchDisplayName
+│   │   ├── dailyWord.js     # fetchTodaysWord, fetchAllDailyWords, upsertDailyWord, deleteDailyWord
+│   │   └── scores.js        # submitScore, fetchLeaderboard, fetchUserPlayedDates
 │   ├── components/
-│   │   └── WordLengthHistogram.jsx  # Stapeldiagram, en stapel per ordlängd (se nedan)
+│   │   ├── WordLengthHistogram.jsx  # Stapeldiagram, en stapel per ordlängd (se nedan)
+│   │   ├── ChallengeBar.jsx         # XP-bar mot nästa nivå (se "Nivåsystem" nedan)
+│   │   ├── WordLengthModal.jsx      # Ord spelaren hittat på en viss längd (klick på histogram-piller)
+│   │   ├── GameMenuModal.jsx        # "…"-menyn: Fortsätt / Avsluta (med bekräftelsesteg, se nedan)
+│   │   ├── TimeUpModal.jsx          # Visas när tiden går ut: fortsätt utan tävling eller avsluta
+│   │   └── WordRevealModal.jsx      # Facit — alla möjliga ord per längd, visas efter bekräftad Avsluta
 │   └── screens/
 │       ├── HomeScreen.jsx
-│       ├── GameScreen.jsx       # Timer + tryck-på-bokstäver-inmatning (se nedan)
+│       ├── GameScreen.jsx       # Timer + tryck-på-bokstäver ELLER tangentbord (se nedan)
 │       ├── ResultScreen.jsx
 │       ├── LeaderboardScreen.jsx
-│       └── AuthScreen.jsx       # Enkel email/lösenord, "Fortsätt som gäst"
+│       ├── ArchiveScreen.jsx    # Kalender för att spela tidigare dagars ord (se nedan)
+│       ├── AuthScreen.jsx       # Email/lösenord + visningsnamn vid signup, "Fortsätt som gäst"
+│       └── AdminWordsScreen.jsx # /admin — publicera dagens ord (se nedan)
 ├── public/
 │   └── ordlista.txt         # Svensk ordlista, 70k+ ord (se "Ordlista" nedan)
 ├── scripts/
 │   └── findWordsIn.mjs      # CLI-verktyg: node scripts/findWordsIn.mjs LÄSKEDRYCK
+├── supabase/
+│   ├── schema.sql           # daily_words, scores, profiles (se "Datamodell" nedan)
+│   └── migrations/          # Inkrementella ändringar mot schema.sql (t.ex. level_times-kolumnen)
 ├── architecture.md          # Det här dokumentet
 └── skrammel-spec.md         # Produkt-spec
 ```
 
 ---
 
-## Datamodell (planerad, ej skapad i Supabase än)
+## Datamodell (skapad i Supabase, projekt `skrammel-beta`)
 
 ### Tabell: `daily_words`
 
@@ -75,6 +89,8 @@ skrammel/
 | word | text | Källordet, versaler |
 | created_at | timestamp | Auto |
 
+RLS: publik `SELECT`, `INSERT`/`UPDATE`/`DELETE` bara för `ADMIN_EMAIL`.
+
 ### Tabell: `scores`
 
 | Kolumn | Typ | Beskrivning |
@@ -83,17 +99,25 @@ skrammel/
 | date | text | Format `YYYY-MM-DD` |
 | score | int | Total poäng |
 | words_found | jsonb | Array av hittade ord |
-| display_name | text | Visningsnamn vid speltillfället (denormaliserat, som i minikors) |
+| display_name | text | Visningsnamn vid speltillfället (denormaliserat, hämtat från `user.user_metadata.display_name`, se "Inloggning" nedan) |
+| level_times | jsonb | `{ "PROFFS": 42, "GUD": 190, ... }` — sekunder från spelstart när respektive nivå klarades, tillagt via migration `2026-07-11-add-level-times.sql` |
 | created_at | timestamp | Auto |
 
-RLS (planerat, mirroring minikors):
+RLS:
 - `SELECT`: publik (för topplistan)
-- `INSERT`: endast autentiserad användare, egna rader
+- `INSERT`: endast autentiserad användare, egna rader (`auth.uid() = user_id`)
 
-### Tabell: `profiles`
+### Tabell: `profiles` — **oanvänd, kandidat för borttagning**
 
-Samma mönster som minikors: `id` (uuid = auth.uid), `display_name`
-(unique), `updated_at`.
+Kolumner: `id` (uuid = auth.uid), `display_name` (unique), `updated_at`.
+Fanns tänkt för att slå upp ett visningsnamn separat från
+inloggningen, men ingenstans i koden skrivs det längre till den här
+tabellen — visningsnamnet sätts numera direkt i Supabase auth
+`user_metadata` vid signup (se "Inloggning" nedan) och läses därifrån,
+inte från `profiles`. Tabellen och dess RLS-policys ligger kvar i
+`schema.sql`/databasen men är dött viktmässigt; en migration som
+droppar den är inte skriven (kräver ett medvetet beslut, inte gjort
+automatiskt).
 
 ---
 
@@ -116,10 +140,10 @@ kureringsscriptet använder) grupperat per ordlängd, körs en gång per
 
 ---
 
-## Spelskärmens interaktion (mobilanpassad)
+## Spelskärmens interaktion (mobil + skrivbord)
 
-`GameScreen.jsx` använder tryck-på-bokstäver istället för tangentbord,
-för att fungera bra på mobil:
+`GameScreen.jsx` stöder både tryck-på-bokstäver (mobilanpassat) och
+vanligt tangentbord (skrivbord):
 
 - Källordets bokstäver visas som en knapprad **längst ner** på skärmen
   (tumvänligt). Sökrutan (visar ordet som byggs) ligger direkt ovanför
@@ -138,6 +162,36 @@ för att fungera bra på mobil:
   avvisat ord (redan hittat / inte ett riktigt ord): brickvalet ligger
   kvar så man kan trycka ⌫ och justera, istället för att behöva bygga
   om från noll.
+- **Tangentbord (tillagt 2026-07-14):** en `keydown`-lyssnare låter
+  spelaren skriva bokstäver direkt (matchas mot första otryckta
+  bricka med samma bokstav), Backspace och Enter — samma handlers som
+  tap-flödet ovan. Avstängd så länge någon modal (meny/tid-ute/
+  ordlängd/facit) är öppen.
+
+---
+
+## Nivåsystem och avsluta-flödet
+
+**Nivåtrappa** (`CHALLENGE_LEVELS` i `game/constants.js`,
+`computeLevelTargets` i `game/levels.js`): Dagens utmaning → PROFFS →
+ELIT → GENI → GUD → **LEGENDARISK**, som andelar (5–40%) av
+`totalPossibleScore` (summan av poäng för alla ord som går att bilda
+av källordet). Målen avrundas ner till närmaste tiotal men är alltid
+strikt stigande. `ChallengeBar.jsx` visar nuvarande nivå som en
+XP-bar mot nästa mål; på toppnivån (LEGENDARISK) visas `(max N)`
+bredvid målet, och när den är klarad byts "målet" ut mot det faktiska
+`totalPossibleScore`.
+
+**Avsluta mitt i spelet** (`GameMenuModal.jsx`, öppnas via
+"…"-knappen): "Avsluta" kräver numera ett bekräftelsesteg ("Är du
+säker? Du kan inte fortsätta spela efter det här.") innan det faktiskt
+avslutar rundan — tidigare avslutade en enda klick direkt, vilket var
+lätt att göra av misstag. Efter bekräftelse visas `WordRevealModal.jsx`
+— facit över alla möjliga ord grupperade per längd, hittade ord
+markerade — innan man går vidare till `ResultScreen`.
+`TimeUpModal.jsx` (visas när tiden går ut) fick **inte** samma
+bekräftelsesteg — att välja Avsluta där är redan ett medvetet val,
+inte ett oavsiktligt klick mitt i spelet.
 
 ---
 
@@ -170,8 +224,9 @@ specen säger "hitta andra ord") och en giltig delmängd av bokstäverna.
 per längd. Användbart innan ett ord publiceras som dagens ord — t.ex.
 `node scripts/findWordsIn.mjs ANDROID` ger 60 hittabara ord (2–6
 bokstäver), en rimlig nivå för 5 minuter. Samma logik
-(`findWordsInSource` i `src/game/findWords.js`) kan återanvändas för
-att t.ex. visa ett facit i appen senare — inte byggt än.
+(`findWordsInSource` i `src/game/findWords.js`) återanvänds i appen
+för att visa facit — se `WordRevealModal.jsx` under "Nivåsystem och
+avsluta-flödet" ovan.
 
 ---
 
@@ -233,6 +288,32 @@ kalender utan svårighetsnivåer (`src/screens/ArchiveScreen.jsx`):
 
 ---
 
+## Inloggning
+
+`AuthScreen.jsx` — email/lösenord via Supabase Auth (`signInWithPassword`
+/ `signUp`), plus "Fortsätt som gäst". Vid signup finns numera även ett
+**visningsnamn**-fält (tillagt 2026-07-14): värdet skickas som
+`options.data.display_name` till `signUp()`, vilket lagras direkt i
+Supabase auth `user_metadata` — tillgängligt omedelbart oavsett om
+projektet kräver e-postbekräftelse eller ej (till skillnad från
+`profiles`-tabellen, se "Datamodell" ovan, som kräver en aktiv session
+för att skriva till pga RLS). `App.jsx` läser
+`user.user_metadata.display_name` synkront från sessionen — inget
+separat Supabase-anrop behövs.
+
+**E-postbekräftelse hanteras nu korrekt:** `signUp()` kan lyckas
+(inget `error`) men ändå returnera `data.session === null` om
+projektet kräver bekräftelse — kontot finns men användaren är inte
+inloggad förrän länken i mejlet klickats. Tidigare kördes `onDone()`
+oavsett, vilket tyst landade den fortfarande utloggade användaren på
+hemskärmen utan förklaring. `AuthScreen.jsx` kollar nu `data.session`
+och visar en "Kolla din mejl"-vy istället. (Projektet `skrammel-beta`
+har för närvarande "Confirm email" avstängt, se nedan, så den här
+grenen triggas inte i produktion just nu — men koden är robust om det
+sätts på igen.)
+
+---
+
 ## Backend: Supabase-projekt `skrammel-beta`
 
 Ett riktigt Supabase-projekt finns nu (namngivet `skrammel-beta`, samma
@@ -265,7 +346,6 @@ repot utan att behöva Supabase-nycklar direkt:
 - `api/dailyWord.js` → `FALLBACK_WORD` (aktuellt värde i
   `src/game/constants.js`, ändras ofta under utveckling/test)
 - `api/scores.js` → `submitScore` no-op, `fetchLeaderboard` → `[]`
-- `api/profile.js` → `fetchDisplayName` → `null`
 - `AuthScreen` visar "Inloggning ej tillgänglig" istället för ett
   trasigt formulär
 
@@ -277,16 +357,15 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
 
 ## Öppna beslut / att göra härnäst
 
-1. Koppla GitHub-repot (`themusclemen/skrammel`, privat) till Vercel —
-   sista steget i deploy-kedjan, se `~/.claude/plans/twinkly-splashing-glacier.md`
-   för hela planen. `vercel.json` har redan SPA-rewrite på plats.
-2. Städa testkonton/testresultat i `skrammel-beta` (se ovan) innan
+1. Städa testkonton/testresultat i `skrammel-beta` (se ovan) innan
    riktiga betatestare bjuds in.
-3. Bestäm hur dagens källord väljs/kureras (ordlistan och
-   kureringsscriptet finns nu — processen för att faktiskt välja och
-   publicera ett ord per dag är inte byggd). `daily_words`-tabellen är
-   tom, så appen kör på `FALLBACK_WORD` tills en rad finns för dagens
-   datum.
-4. Ordlistan är fortfarande inte 100% genomgången — den kan innehålla
+2. Ta ställning till `profiles`-tabellen (se "Datamodell" ovan) — helt
+   oanvänd sedan visningsnamn flyttade till auth `user_metadata`.
+   Antingen skriv en migration som droppar den, eller lämna den om
+   den kan tänkas fylla ett syfte senare.
+3. Ordlistan är fortfarande inte 100% genomgången — den kan innehålla
    ovanliga böjningsformer eller enstaka konstigheter som dyker upp
    under spel. Justera `public/ordlista.txt` vid behov.
+4. Daglig ord-kuration/publicering sker nu manuellt via `/admin` (se
+   ovan) — fungerar, men är fortfarande en manuell process, inte
+   automatiserad.
