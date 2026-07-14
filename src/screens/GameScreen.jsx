@@ -84,6 +84,13 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   // det laget (se submitCurrentScore/timer-effekten nedan) oavsett vad
   // spelaren väljer, så fri spelning påverkar aldrig det sparade resultatet.
   const [freePlay, setFreePlay] = useState(false);
+  // Idle-texten ("BILDA NYA ORD AV..." / "Kämpa :)") som scrollar där
+  // gissningsprompten annars visas, tills spelaren skriver sin första
+  // bokstav — sen är den förbrukad för resten av rundan, även om
+  // spelaren raderar tillbaka till tomt.
+  const [hasTypedOnce, setHasTypedOnce] = useState(false);
+  const [idleTickerPast30s, setIdleTickerPast30s] = useState(false);
+  const [idleTickerShowSecondary, setIdleTickerShowSecondary] = useState(false);
   const guessMetrics = useMemo(
     () => guessTileMetrics(tappedIndices.length),
     [tappedIndices.length]
@@ -123,6 +130,20 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   const submittedRef = useRef(false);
 
   useEffect(() => () => clearTimeout(highlightTimeoutRef.current), []);
+
+  useEffect(() => {
+    if (tappedIndices.length > 0) setHasTypedOnce(true);
+  }, [tappedIndices.length]);
+
+  useEffect(() => {
+    if (hasTypedOnce) return;
+    const id = setTimeout(() => setIdleTickerPast30s(true), 30000);
+    return () => clearTimeout(id);
+  }, [hasTypedOnce]);
+
+  const handleIdleTickerLoop = () => {
+    if (idleTickerPast30s) setIdleTickerShowSecondary((v) => !v);
+  };
 
   // Sparar resultatet — men bara första gången. Anropas dels direkt när
   // tiden går ut (oavsett vad spelaren sen väljer), dels från finish() om
@@ -235,6 +256,10 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
           0%, 49% { opacity: 1; }
           50%, 100% { opacity: 0; }
         }
+        @keyframes skrammelMarquee {
+          from { transform: translateX(0); }
+          to { transform: translateX(-100%); }
+        }
       `}</style>
 
       <div style={styles.titleRow}>
@@ -261,7 +286,15 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
 
       <div style={styles.guessCenter}>
         {tappedIndices.length === 0 ? (
-          <span style={styles.cursor}>_</span>
+          hasTypedOnce ? (
+            <span style={styles.cursor}>_</span>
+          ) : (
+            <div style={styles.idleTickerContainer}>
+              <span style={styles.idleTickerText} onAnimationIteration={handleIdleTickerLoop}>
+                {idleTickerShowSecondary ? "Kämpa :)" : `BILDA NYA ORD AV "${sourceWord}"`}
+              </span>
+            </div>
+          )
         ) : (
           <div style={{ ...styles.guessRow, gap: `${guessMetrics.gap}px` }}>
             {tappedIndices.map((sourceIdx, pos) => (
@@ -435,6 +468,12 @@ const styles = {
   cursor: {
     color: T.muted, fontWeight: 700, lineHeight: 1, fontSize: "3.2rem",
     animation: "skrammelBlink 1s steps(1, end) infinite",
+  },
+  idleTickerContainer: { width: "100%", overflow: "hidden", whiteSpace: "nowrap" },
+  idleTickerText: {
+    display: "inline-block", paddingLeft: "100%",
+    color: T.muted, fontWeight: 700, letterSpacing: "0.03em", fontSize: "1.3rem",
+    animation: "skrammelMarquee 9s linear infinite",
   },
   guessRow: { display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center" },
   guessTile: {
