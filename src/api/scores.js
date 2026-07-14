@@ -13,6 +13,15 @@ export async function submitScore(userId, date, score, words, displayName, level
   });
 }
 
+// Vilka datum den inloggade spelaren redan har spelat — används för att
+// markera klarade dagar i arkivet.
+export async function fetchUserPlayedDates(userId) {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase.from("scores").select("date").eq("user_id", userId);
+  if (error) throw error;
+  return [...new Set((data ?? []).map((r) => r.date))];
+}
+
 export async function fetchLeaderboard(date) {
   if (!isSupabaseConfigured) return [];
 

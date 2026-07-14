@@ -13,3 +13,7 @@ export const CHALLENGE_LEVELS = [
 
 // Används lokalt tills daily_words-tabellen har data för dagens datum.
 export const FALLBACK_WORD = "BASRELIEF";
+
+// Samma admin-mail som RLS-policyn i supabase/schema.sql begränsar
+// skrivrätt på daily_words till.
+export const ADMIN_EMAIL = "themusclemen@gmail.com";

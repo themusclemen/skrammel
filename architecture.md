@@ -165,13 +165,71 @@ under ett kort ögonblick.
 det inte att skilja på "spelaren skrev källordet självt" (ska avvisas,
 specen säger "hitta andra ord") och en giltig delmängd av bokstäverna.
 
-**Kurering:** `scripts/findWordsIn.mjs <ORD>` listar alla ord i
+**Kurering (CLI):** `scripts/findWordsIn.mjs <ORD>` listar alla ord i
 `ordlista.txt` som går att bilda ur ett kandidat-källord, grupperat
 per längd. Användbart innan ett ord publiceras som dagens ord — t.ex.
 `node scripts/findWordsIn.mjs ANDROID` ger 60 hittabara ord (2–6
 bokstäver), en rimlig nivå för 5 minuter. Samma logik
 (`findWordsInSource` i `src/game/findWords.js`) kan återanvändas för
 att t.ex. visa ett facit i appen senare — inte byggt än.
+
+---
+
+## Admin: `/admin` — publicera dagens ord
+
+Speglar minikors' `/adminwords`-mönster (routing via
+`window.location.pathname`, inget router-bibliotek), men mycket
+enklare eftersom Skrammel bara har ett ord per dag (inte ordpar +
+ledtrådar + tema):
+
+- **Åtkomst:** kräver inloggning + `user.email === ADMIN_EMAIL`
+  (`themusclemen@gmail.com`, samma konstant som RLS-policyn i
+  `schema.sql` pekar på). Ej inloggad → `AuthScreen`. Fel mejl →
+  "Åtkomst nekad". RLS är den faktiska säkerhetsspärren — klientkollen
+  är bara för att slippa visa en trasig adminsida.
+- **Datumspann:** idag + 30 dagar framåt (31 rader), se
+  `AdminWordsScreen.jsx`.
+- **Auto-generering:** `src/game/adminSuggest.js` slumpar kandidater
+  (7–10 bokstäver) ur ordlistan och kollar antalet hittabara ord via
+  `findWordsInSource` — försöker landa inom 50–250 hittabara ord
+  (upp till 20 försök per rad), annars bästa träffen. Redan
+  publicerade dagar rörs aldrig av auto-generering.
+- **Per rad:** redigerbart ordfält, hittabara-ord-antal (räknas om vid
+  blur), ↻ för att slumpa en ny kandidat, kryssruta "Publicera" som
+  upsertar/tar bort raden i `daily_words` (`api/dailyWord.js`:
+  `fetchAllDailyWords`, `upsertDailyWord`, `deleteDailyWord`).
+- **Verifierat:** ej inloggad → login, fel mejl → nekad (RLS ger 403
+  om man ändå försöker), tabellen laddar och genererar korrekt.
+  Publicering kunde inte testas end-to-end här (kräver den riktiga
+  admin-inloggningen) — testa själv i produktion.
+- **Status:** användaren har själv loggat in med `themusclemen@gmail.com`
+  och publicerat riktiga ord för 2026-07-14 t.o.m. 2026-07-24.
+
+---
+
+## Arkiv: spela tidigare dagars ord
+
+Speglar minikors' `OlderChallengesScreen`, men förenklat till en
+kalender utan svårighetsnivåer (`src/screens/ArchiveScreen.jsx`):
+
+- Månadskalender (måndag–söndag), navigering med ‹ ›
+- En dag är spelbar om `daily_words` har en rad för det datumet OCH
+  datumet är idag eller tidigare (kan aldrig spela framtida
+  publicerade dagar i förväg)
+- Klarade dagar (finns en rad i `scores` för inloggad användare +
+  datumet) visas gröna med bock, hämtas via
+  `fetchUserPlayedDates` i `api/scores.js`
+- Klick på en spelbar dag anropar `App.jsx`s `startGame(date)`, som
+  hämtar ordet för *det* datumet (`fetchTodaysWord(date)` — samma
+  funktion som redan användes för "dagens ord", nu daturm-generisk)
+  och sätter `playingDate` — används både när resultatet sparas och
+  när man går vidare till Topplista (så den visar rätt datums
+  topplista, inte alltid dagens)
+- **Verifierat end-to-end mot riktig Supabase:** kalendern visar bara
+  2026-07-14 som spelbar (resten av de redan publicerade dagarna
+  07-15–07-24 ligger i framtiden och är korrekt spärrade), spelade
+  dagens ord ("SKOLKET"), avslutade, och dagen visades grön/klarad vid
+  återbesök i kalendern.
 
 ---
 

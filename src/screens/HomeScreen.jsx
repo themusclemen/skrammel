@@ -1,6 +1,6 @@
 import { T } from "../theme.js";
 
-export default function HomeScreen({ user, displayName, onPlay, onLeaderboard, onLogin, onSignOut }) {
+export default function HomeScreen({ user, displayName, onPlay, onArchive, onLeaderboard, onLogin, onSignOut }) {
   return (
     <div style={styles.page}>
       <div style={styles.titleRow}>
@@ -13,7 +13,10 @@ export default function HomeScreen({ user, displayName, onPlay, onLeaderboard, o
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={styles.playButton}>Spela dagens skrammel</button>
       </div>
-      <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista</button>
+      <div style={styles.secondaryRow}>
+        <button onClick={onArchive} style={styles.secondaryButton}>Tidigare utmaningar</button>
+        <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista</button>
+      </div>
 
       <div style={styles.authRow}>
         {user ? (
@@ -65,8 +68,9 @@ const styles = {
     padding: "0.9rem 1.6rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1rem", cursor: "pointer",
   },
+  secondaryRow: { display: "flex", gap: "0.6rem", flexWrap: "wrap", justifyContent: "center" },
   secondaryButton: {
-    padding: "0.7rem 1.4rem", borderRadius: 10, border: `1px solid ${T.border}`,
+    padding: "0.7rem 1.2rem", borderRadius: 10, border: `1px solid ${T.border}`,
     background: T.surface, color: T.text, fontSize: "0.9rem", cursor: "pointer",
   },
   authRow: { marginTop: "2rem", fontSize: "0.85rem", color: T.muted },
