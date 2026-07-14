@@ -13,11 +13,18 @@ import ChallengeBar from "../components/ChallengeBar.jsx";
 import WordLengthModal from "../components/WordLengthModal.jsx";
 import GameMenuModal from "../components/GameMenuModal.jsx";
 import TimeUpModal from "../components/TimeUpModal.jsx";
+import WordRevealModal from "../components/WordRevealModal.jsx";
 
 function groupByLength(words) {
   const counts = {};
   for (const word of words) counts[word.length] = (counts[word.length] ?? 0) + 1;
   return counts;
+}
+
+function groupWordsByLength(words) {
+  const groups = {};
+  for (const word of words) (groups[word.length] ??= []).push(word);
+  return groups;
 }
 
 const FEEDBACK_MESSAGES = {
@@ -66,6 +73,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   const [feedback, setFeedback] = useState(null);
   const [modalLength, setModalLength] = useState(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [showWordReveal, setShowWordReveal] = useState(false);
   const [timeIsUp, setTimeIsUp] = useState(false);
   // Sant när spelaren valt att fortsätta spela efter att tiden tog slut —
   // klockan döljs och räknas inte längre. Resultatet är redan sparat vid
@@ -83,10 +91,12 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
     () => tappedIndices.map((i) => sourceLetters[i]).join(""),
     [tappedIndices, sourceLetters]
   );
-  const totalByLength = useMemo(
-    () => groupByLength(findWordsInSource(sourceWord, getDictionary())),
+  const sourceWordList = useMemo(
+    () => findWordsInSource(sourceWord, getDictionary()),
     [sourceWord]
   );
+  const totalByLength = useMemo(() => groupByLength(sourceWordList), [sourceWordList]);
+  const allWordsByLength = useMemo(() => groupWordsByLength(sourceWordList), [sourceWordList]);
   const foundByLength = useMemo(
     () => groupByLength(found.map((f) => f.word)),
     [found]
@@ -192,7 +202,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   };
 
   useEffect(() => {
-    if (showMenu || timeIsUp || modalLength !== null) return;
+    if (showMenu || showWordReveal || timeIsUp || modalLength !== null) return;
     const handleKeyDown = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Enter") {
@@ -352,8 +362,16 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
 
       {showMenu && (
         <GameMenuModal
-          onQuit={() => { setShowMenu(false); finish(); }}
+          onQuit={() => { setShowMenu(false); setShowWordReveal(true); }}
           onResume={() => setShowMenu(false)}
+        />
+      )}
+
+      {showWordReveal && (
+        <WordRevealModal
+          wordsByLength={allWordsByLength}
+          foundWords={foundWords}
+          onContinue={() => { setShowWordReveal(false); finish(); }}
         />
       )}
 
