@@ -480,7 +480,9 @@ const styles = {
   idleTickerContainer: { width: "100%", overflow: "hidden", whiteSpace: "nowrap" },
   idleTickerText: {
     display: "inline-block", paddingLeft: "100%",
-    color: T.muted, fontWeight: 700, letterSpacing: "0.03em", fontSize: "1.3rem",
+    fontWeight: 700, letterSpacing: "0.03em", fontSize: "2.6rem",
+    background: "linear-gradient(90deg, #ff5252, #ffb347, #fff176, #7bd88f, #64b5f6, #b39ddb, #ff5252)",
+    WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent",
     animation: "skrammelMarquee 9s linear infinite",
   },
   guessRow: { display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center" },
