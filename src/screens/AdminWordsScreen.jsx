@@ -14,12 +14,12 @@ function localDateStr(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// Från den 1:a i innevarande månad till idag + FORWARD_DAYS — täcker alltid
-// hela nuvarande månad (även redan passerade dagar, för arkivet) plus en
+// Från den 1:a i föregående månad till idag + FORWARD_DAYS — täcker alltid
+// föregående och nuvarande månad (för arkivet/efterhandsifyllnad) plus en
 // planeringsbuffert framåt.
 function getDateRange() {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
   const end = new Date(today);
   end.setDate(end.getDate() + FORWARD_DAYS);
 
