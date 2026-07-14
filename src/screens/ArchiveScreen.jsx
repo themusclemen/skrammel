@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { T } from "../theme.js";
+import ReplayConfirmModal from "../components/ReplayConfirmModal.jsx";
 
 const WEEKDAYS = ["M", "T", "O", "T", "F", "L", "S"];
 const MONTH_NAMES = [
@@ -34,6 +35,12 @@ export default function ArchiveScreen({ playableDates, playedDates, onSelectDate
   const weeks = useMemo(() => getMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
   const playableSet = useMemo(() => new Set(playableDates), [playableDates]);
   const playedSet = useMemo(() => new Set(playedDates), [playedDates]);
+  const [replayDate, setReplayDate] = useState(null);
+
+  const handleSelectDate = (date) => {
+    if (playedSet.has(date)) setReplayDate(date);
+    else onSelectDate(date);
+  };
 
   const goPrevMonth = () => {
     if (viewMonth === 0) { setViewYear((y) => y - 1); setViewMonth(11); }
@@ -73,7 +80,7 @@ export default function ArchiveScreen({ playableDates, playedDates, onSelectDate
               return (
                 <button
                   key={di}
-                  onClick={() => isPlayable && onSelectDate(date)}
+                  onClick={() => isPlayable && handleSelectDate(date)}
                   disabled={!isPlayable}
                   style={{
                     ...styles.dayCell,
@@ -96,6 +103,13 @@ export default function ArchiveScreen({ playableDates, playedDates, onSelectDate
         <span><span style={{ ...styles.legendDot, background: T.accent }} /> Spelbar</span>
         <span><span style={{ ...styles.legendDot, background: "#7bd88f" }} /> Klarad</span>
       </div>
+
+      {replayDate && (
+        <ReplayConfirmModal
+          onConfirm={() => { const date = replayDate; setReplayDate(null); onSelectDate(date, { isReplay: true }); }}
+          onCancel={() => setReplayDate(null)}
+        />
+      )}
     </div>
   );
 }

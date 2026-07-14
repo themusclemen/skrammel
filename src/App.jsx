@@ -31,6 +31,9 @@ export default function App() {
   const [wordListReady, setWordListReady] = useState(false);
   const [sourceWord, setSourceWord] = useState(null);
   const [playingDate, setPlayingDate] = useState(null); // datumet för pusslet som spelas/spelades
+  // Sant när spelaren valt att spela om ett redan klarat datum ur arkivet —
+  // se ReplayConfirmModal. Resultatet sparas då inte till topplistan.
+  const [isReplay, setIsReplay] = useState(false);
   const [leaderboardDate, setLeaderboardDate] = useState(null);
   const [lastResult, setLastResult] = useState(null); // { score, words }
   const [archiveData, setArchiveData] = useState(null); // { playableDates, playedDates }
@@ -54,10 +57,11 @@ export default function App() {
   const navigate = useCallback((next) => setScreen(next), []);
 
   // Hämtar ordet för ett datum (idag eller ur arkivet) och startar spelet.
-  const startGame = useCallback((date) => {
+  const startGame = useCallback((date, { isReplay: replay = false } = {}) => {
     fetchTodaysWord(date).then((word) => {
       setSourceWord(word);
       setPlayingDate(date);
+      setIsReplay(replay);
       setScreen("game");
     });
   }, []);
@@ -83,10 +87,10 @@ export default function App() {
   // tidigare) — oavsett om spelaren sen väljer att fortsätta utan tävling
   // eller avsluta direkt. Navigerar INTE bort från spelskärmen.
   const handleSubmitScore = useCallback(async (score, words, levelTimes) => {
-    if (!user) return; // Gäster spelar men syns inte på topplistan.
+    if (!user || isReplay) return; // Gäster syns inte på topplistan; reprisresultat räknas inte.
     const name = displayName ?? user.email.split("@")[0];
     await submitScore(user.id, playingDate ?? todayStr(), score, words, name, levelTimes);
-  }, [user, displayName, playingDate]);
+  }, [user, displayName, playingDate, isReplay]);
 
   const handleGameFinish = useCallback((score, words) => {
     setLastResult({ score, words });
