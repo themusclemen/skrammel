@@ -191,6 +191,26 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
     }
   };
 
+  useEffect(() => {
+    if (showMenu || timeIsUp || modalLength !== null) return;
+    const handleKeyDown = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSubmit();
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        handleBackspace();
+      } else if (e.key.length === 1) {
+        const letter = e.key.toUpperCase();
+        const idx = sourceLetters.findIndex((l, i) => l === letter && !usedIndices.has(i));
+        if (idx !== -1) handleTileTap(idx);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const seconds = String(timeLeft % 60).padStart(2, "0");
 
