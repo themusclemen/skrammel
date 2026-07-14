@@ -8,18 +8,42 @@ export default function AuthScreen({ onDone }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = mode === "login"
-      ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+    if (mode === "login") {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      setLoading(false);
+      if (error) { setError(error.message); return; }
+      onDone();
+      return;
+    }
+    const { data, error } = await supabase.auth.signUp({ email, password });
     setLoading(false);
     if (error) { setError(error.message); return; }
+    // Om projektet kräver e-postbekräftelse kommer ingen session tillbaka
+    // direkt — kontot finns men användaren är inte inloggad förrän länken
+    // i mejlet klickats, så vi kan inte bara köra onDone() som vid inloggning.
+    if (!data.session) { setConfirmationSent(true); return; }
     onDone();
   };
+
+  if (confirmationSent) {
+    return (
+      <div style={styles.page}>
+        <h2 style={{ color: T.accent }}>Kolla din mejl</h2>
+        <p style={{ color: T.muted, textAlign: "center", maxWidth: 300 }}>
+          Vi har skickat en bekräftelselänk till {email}. Klicka på den för att aktivera kontot, logga sedan in.
+        </p>
+        <a href="#" onClick={(e) => { e.preventDefault(); setConfirmationSent(false); setMode("login"); }} style={{ color: T.muted, fontSize: "0.85rem" }}>
+          Till inloggning
+        </a>
+      </div>
+    );
+  }
 
   if (!isSupabaseConfigured) {
     return (
