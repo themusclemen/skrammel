@@ -6,6 +6,7 @@ export default function AuthScreen({ onDone }) {
   const [mode, setMode] = useState("login"); // "login" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signupName, setSignupName] = useState("");
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
@@ -21,7 +22,10 @@ export default function AuthScreen({ onDone }) {
       onDone();
       return;
     }
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { display_name: signupName.trim() } },
+    });
     setLoading(false);
     if (error) { setError(error.message); return; }
     // Om projektet kräver e-postbekräftelse kommer ingen session tillbaka
@@ -65,6 +69,12 @@ export default function AuthScreen({ onDone }) {
       <h2 style={{ color: T.accent }}>{mode === "login" ? "Logga in" : "Skapa konto"}</h2>
 
       <form onSubmit={handleSubmit} style={styles.form}>
+        {mode === "signup" && (
+          <input
+            type="text" required placeholder="Visningsnamn" value={signupName}
+            onChange={(e) => setSignupName(e.target.value)} style={styles.input}
+          />
+        )}
         <input
           type="email" required placeholder="E-post" value={email}
           onChange={(e) => setEmail(e.target.value)} style={styles.input}

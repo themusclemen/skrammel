@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
-import { fetchDisplayName } from "./api/profile.js";
 import { submitScore, fetchUserPlayedDates } from "./api/scores.js";
 import { loadWordList } from "./game/wordList.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
@@ -27,7 +26,7 @@ function todayStr() {
 export default function App() {
   const isAdminRoute = window.location.pathname === "/admin";
   const [user, setUser] = useState(undefined); // undefined = laddar, null = utloggad/gäst
-  const [displayName, setDisplayName] = useState(null);
+  const displayName = user?.user_metadata?.display_name ?? null; // satt vid signup, se AuthScreen
   const [screen, setScreen] = useState("home");
   const [wordListReady, setWordListReady] = useState(false);
   const [sourceWord, setSourceWord] = useState(null);
@@ -41,16 +40,9 @@ export default function App() {
       setUser(null); // Ingen backend lokalt — kör direkt som gäst, ingen krasch.
       return;
     }
-    supabase.auth.getSession().then(({ data }) => {
-      const u = data.session?.user ?? null;
-      setUser(u);
-      if (u) fetchDisplayName(u.id).then(setDisplayName);
-    });
+    supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      const u = session?.user ?? null;
-      setUser(u);
-      if (u) fetchDisplayName(u.id).then(setDisplayName);
-      else setDisplayName(null);
+      setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
   }, []);
