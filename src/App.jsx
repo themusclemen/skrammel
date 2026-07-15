@@ -166,6 +166,7 @@ export default function App() {
     return (
       <LeaderboardScreen
         date={leaderboardDate ?? todayStr()}
+        onDateChange={setLeaderboardDate}
         onHome={() => navigate("home")}
         onArchive={openArchive}
       />
