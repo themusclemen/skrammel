@@ -176,7 +176,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
 
   const handleQuitAtTimeUp = () => {
     setTimeIsUp(false);
-    finish();
+    setShowWordReveal(true);
   };
 
   const handleContinueFreePlay = () => {
