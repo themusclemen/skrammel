@@ -2,6 +2,16 @@ import { useEffect, useState } from "react";
 import { T } from "../theme.js";
 import { fetchLeaderboard } from "../api/scores.js";
 
+const MONTH_NAMES = [
+  "januari", "februari", "mars", "april", "maj", "juni",
+  "juli", "augusti", "september", "oktober", "november", "december",
+];
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
+}
+
 export default function LeaderboardScreen({ date, onHome, onArchive }) {
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
@@ -12,7 +22,8 @@ export default function LeaderboardScreen({ date, onHome, onArchive }) {
 
   return (
     <div style={styles.page}>
-      <h2 style={{ margin: 0, color: T.accent }}>Dagens topplista</h2>
+      <h2 style={{ margin: 0, color: T.accent }}>Topplista</h2>
+      <div style={{ color: T.muted, marginTop: "-0.7rem" }}>{formatDate(date)}</div>
 
       {error && <div style={{ color: T.muted }}>Topplistan är inte redo än.</div>}
       {!error && rows === null && <div style={{ color: T.muted }}>Laddar…</div>}

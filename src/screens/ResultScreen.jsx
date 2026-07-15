@@ -19,13 +19,9 @@ export default function ResultScreen({ score, words, user, onPlayHome, onLeaderb
         </button>
       )}
 
-      <div style={styles.links}>
-        <a href="#" onClick={(e) => { e.preventDefault(); onLeaderboard(); }} style={{ color: T.text }}>
-          Topplista
-        </a>
-        <a href="#" onClick={(e) => { e.preventDefault(); onPlayHome(); }} style={{ color: T.muted }}>
-          Till start
-        </a>
+      <div style={styles.navRow}>
+        <button onClick={onLeaderboard} style={styles.navButton}>Topplista</button>
+        <button onClick={onPlayHome} style={styles.navButton}>Till start</button>
       </div>
     </div>
   );
@@ -41,8 +37,12 @@ const styles = {
   wordList: { display: "flex", flexWrap: "wrap", gap: "0.4rem", maxWidth: 320, justifyContent: "center" },
   wordChip: { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999, padding: "0.25rem 0.6rem", fontSize: "0.85rem" },
   loginButton: {
-    marginTop: "1rem", padding: "0.7rem 1.2rem", borderRadius: 8, border: "none",
+    marginTop: "1rem", padding: "0.7rem 1.2rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, cursor: "pointer",
   },
-  links: { display: "flex", gap: "1rem", marginTop: "1.5rem", fontSize: "0.9rem" },
+  navRow: { display: "flex", gap: "0.6rem", flexWrap: "wrap", marginTop: "1.5rem", justifyContent: "center" },
+  navButton: {
+    padding: "0.7rem 1.2rem", borderRadius: 10, border: `1px solid ${T.border}`,
+    background: T.surface, color: T.text, fontSize: "0.9rem", cursor: "pointer",
+  },
 };
