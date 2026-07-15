@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
-import { submitScore, fetchUserPlayedDates } from "./api/scores.js";
+import { submitScore, fetchUserPlayedDates, hasPlayedDate } from "./api/scores.js";
 import { loadWordList } from "./game/wordList.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { T } from "./theme.js";
@@ -12,6 +12,7 @@ import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import ArchiveScreen from "./screens/ArchiveScreen.jsx";
 import AuthScreen from "./screens/AuthScreen.jsx";
 import AdminWordsScreen from "./screens/AdminWordsScreen.jsx";
+import ReplayConfirmModal from "./components/ReplayConfirmModal.jsx";
 
 function pad(n) { return String(n).padStart(2, "0"); }
 
@@ -37,6 +38,9 @@ export default function App() {
   const [leaderboardDate, setLeaderboardDate] = useState(null);
   const [lastResult, setLastResult] = useState(null); // { score, words }
   const [archiveData, setArchiveData] = useState(null); // { playableDates, playedDates }
+  // Sant medan vi väntar på att spelaren bekräftar en repris av dagens ord
+  // (via "Spela dagens skrammel" när den redan är klarad) — se handlePlayToday.
+  const [showTodayReplayConfirm, setShowTodayReplayConfirm] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -65,6 +69,16 @@ export default function App() {
       setScreen("game");
     });
   }, []);
+
+  // Fångar en repris av dagens ord från hemskärmen (Spela dagens skrammel)
+  // innan spelet startar — precis som ReplayConfirmModal gör i arkivet.
+  const handlePlayToday = useCallback(async () => {
+    if (user && await hasPlayedDate(user.id, todayStr())) {
+      setShowTodayReplayConfirm(true);
+      return;
+    }
+    startGame(todayStr());
+  }, [user, startGame]);
 
   const goToLeaderboard = useCallback((date) => {
     setLeaderboardDate(date);
@@ -149,7 +163,13 @@ export default function App() {
   }
 
   if (screen === "leaderboard") {
-    return <LeaderboardScreen date={leaderboardDate ?? todayStr()} onBack={() => navigate("home")} />;
+    return (
+      <LeaderboardScreen
+        date={leaderboardDate ?? todayStr()}
+        onHome={() => navigate("home")}
+        onArchive={openArchive}
+      />
+    );
   }
 
   if (screen === "archive") {
@@ -174,14 +194,22 @@ export default function App() {
   }
 
   return (
-    <HomeScreen
-      user={user}
-      displayName={displayName}
-      onPlay={() => startGame(todayStr())}
-      onArchive={openArchive}
-      onLeaderboard={() => goToLeaderboard(todayStr())}
-      onLogin={() => navigate("auth")}
-      onSignOut={handleSignOut}
-    />
+    <>
+      <HomeScreen
+        user={user}
+        displayName={displayName}
+        onPlay={handlePlayToday}
+        onArchive={openArchive}
+        onLeaderboard={() => goToLeaderboard(todayStr())}
+        onLogin={() => navigate("auth")}
+        onSignOut={handleSignOut}
+      />
+      {showTodayReplayConfirm && (
+        <ReplayConfirmModal
+          onConfirm={() => { setShowTodayReplayConfirm(false); startGame(todayStr(), { isReplay: true }); }}
+          onCancel={() => setShowTodayReplayConfirm(false)}
+        />
+      )}
+    </>
   );
 }

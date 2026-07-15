@@ -22,6 +22,17 @@ export async function fetchUserPlayedDates(userId) {
   return [...new Set((data ?? []).map((r) => r.date))];
 }
 
+// Har spelaren redan spelat ett givet datum? Används för att fånga en repris
+// av dagens ord innan spelet startar (se ReplayConfirmModal), utan att hämta
+// hela arkiv-listan.
+export async function hasPlayedDate(userId, date) {
+  if (!isSupabaseConfigured) return false;
+  const { data, error } = await supabase
+    .from("scores").select("id").eq("user_id", userId).eq("date", date).limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 export async function fetchLeaderboard(date) {
   if (!isSupabaseConfigured) return [];
 
