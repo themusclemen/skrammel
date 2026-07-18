@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
-import { submitScore, fetchUserPlayedDates, hasPlayedDate } from "./api/scores.js";
+import { submitScore, fetchUserPlayedDates, hasPlayedDate, fetchUserStats } from "./api/scores.js";
 import { loadWordList } from "./game/wordList.js";
+import { computeStreak } from "./game/streak.js";
+import { bestLevelReached } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
@@ -41,6 +43,8 @@ export default function App() {
   // Sant medan vi väntar på att spelaren bekräftar en repris av dagens ord
   // (via "Spela dagens skrammel" när den redan är klarad) — se handlePlayToday.
   const [showTodayReplayConfirm, setShowTodayReplayConfirm] = useState(false);
+  // Underlag för spelstreck och bästa nivå — se HomeScreen/ResultScreen.
+  const [userStats, setUserStats] = useState({ playedDates: [], levelTimesList: [] });
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -57,6 +61,20 @@ export default function App() {
   useEffect(() => {
     loadWordList().then(() => setWordListReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!user) { setUserStats({ playedDates: [], levelTimesList: [] }); return; }
+    fetchUserStats(user.id).then(setUserStats);
+  }, [user]);
+
+  const streak = useMemo(
+    () => computeStreak(userStats.playedDates, todayStr()),
+    [userStats.playedDates]
+  );
+  const bestLevel = useMemo(
+    () => bestLevelReached(userStats.levelTimesList),
+    [userStats.levelTimesList]
+  );
 
   const navigate = useCallback((next) => setScreen(next), []);
 
@@ -104,6 +122,7 @@ export default function App() {
     if (!user || isReplay) return; // Gäster syns inte på topplistan; reprisresultat räknas inte.
     const name = displayName ?? user.email.split("@")[0];
     await submitScore(user.id, playingDate ?? todayStr(), score, words, name, levelTimes);
+    fetchUserStats(user.id).then(setUserStats); // Uppdaterar streck/bästa nivå direkt till resultatskärmen.
   }, [user, displayName, playingDate, isReplay]);
 
   const handleGameFinish = useCallback((score, words) => {
@@ -155,6 +174,8 @@ export default function App() {
         score={lastResult.score}
         words={lastResult.words}
         user={user}
+        streak={streak}
+        bestLevel={bestLevel}
         onPlayHome={() => navigate("home")}
         onLeaderboard={() => goToLeaderboard(playingDate ?? todayStr())}
         onLogin={() => navigate("auth")}
@@ -199,6 +220,8 @@ export default function App() {
       <HomeScreen
         user={user}
         displayName={displayName}
+        streak={streak}
+        bestLevel={bestLevel}
         onPlay={handlePlayToday}
         onArchive={openArchive}
         onLeaderboard={() => goToLeaderboard(todayStr())}

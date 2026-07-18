@@ -1,6 +1,6 @@
 import { T } from "../theme.js";
 
-export default function HomeScreen({ user, displayName, onPlay, onArchive, onLeaderboard, onLogin, onSignOut }) {
+export default function HomeScreen({ user, displayName, streak, bestLevel, onPlay, onArchive, onLeaderboard, onLogin, onSignOut }) {
   return (
     <div style={styles.page}>
       <div style={styles.titleRow}>
@@ -9,6 +9,13 @@ export default function HomeScreen({ user, displayName, onPlay, onArchive, onLea
         <span style={styles.sparkle}>✨</span>
       </div>
       <p style={styles.subtitle}>Hitta så många ord du kan på 5 minuter.</p>
+
+      {user && (streak > 0 || bestLevel) && (
+        <div style={styles.statsRow}>
+          {streak > 0 && <span style={styles.statChip}>🔥 {streak} dagar i rad</span>}
+          {bestLevel && <span style={styles.statChip}>🏆 Bästa nivå: {bestLevel}</span>}
+        </div>
+      )}
 
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={styles.playButton}>Spela dagens skrammel</button>
@@ -67,6 +74,11 @@ const styles = {
     display: "block", width: "100%",
     padding: "0.9rem 1.6rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1rem", cursor: "pointer",
+  },
+  statsRow: { display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" },
+  statChip: {
+    background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999,
+    padding: "0.3rem 0.7rem", fontSize: "0.85rem", color: T.text,
   },
   secondaryRow: { display: "flex", gap: "0.6rem", flexWrap: "wrap", justifyContent: "center" },
   secondaryButton: {

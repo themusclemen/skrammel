@@ -1,11 +1,18 @@
 import { T } from "../theme.js";
 
-export default function ResultScreen({ score, words, user, onPlayHome, onLeaderboard, onLogin }) {
+export default function ResultScreen({ score, words, user, streak, bestLevel, onPlayHome, onLeaderboard, onLogin }) {
   return (
     <div style={styles.page}>
       <div style={{ color: T.muted }}>Tiden är ute!</div>
       <div style={styles.score}>{score} poäng</div>
       <div style={{ color: T.muted }}>{words.length} ord hittade</div>
+
+      {user && (streak > 0 || bestLevel) && (
+        <div style={styles.statsRow}>
+          {streak > 0 && <span style={styles.statChip}>🔥 {streak} dagar i rad</span>}
+          {bestLevel && <span style={styles.statChip}>🏆 Bästa nivå: {bestLevel}</span>}
+        </div>
+      )}
 
       <div style={styles.wordList}>
         {words.map((w) => (
@@ -34,6 +41,11 @@ const styles = {
     gap: "1rem", padding: "1.5rem", textAlign: "center",
   },
   score: { fontSize: "3rem", fontWeight: 700, color: T.accent },
+  statsRow: { display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" },
+  statChip: {
+    background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999,
+    padding: "0.3rem 0.7rem", fontSize: "0.85rem", color: T.text,
+  },
   wordList: { display: "flex", flexWrap: "wrap", gap: "0.4rem", maxWidth: 320, justifyContent: "center" },
   wordChip: { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 999, padding: "0.25rem 0.6rem", fontSize: "0.85rem" },
   loginButton: {

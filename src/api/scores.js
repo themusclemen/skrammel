@@ -33,6 +33,23 @@ export async function hasPlayedDate(userId, date) {
   return (data ?? []).length > 0;
 }
 
+// Spelarens hela resultat-historik i ett enda anrop — underlag för både
+// spelstrecket (computeStreak) och bästa uppnådda nivå (bestLevelReached)
+// på hem- och resultatskärmen.
+export async function fetchUserStats(userId) {
+  if (!isSupabaseConfigured) return { playedDates: [], levelTimesList: [] };
+
+  const { data, error } = await supabase
+    .from("scores").select("date, level_times").eq("user_id", userId);
+  if (error) throw error;
+
+  const rows = data ?? [];
+  return {
+    playedDates: [...new Set(rows.map((r) => r.date))],
+    levelTimesList: rows.map((r) => r.level_times ?? {}),
+  };
+}
+
 export async function fetchLeaderboard(date) {
   if (!isSupabaseConfigured) return [];
 
