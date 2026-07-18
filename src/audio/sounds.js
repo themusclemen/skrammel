@@ -42,3 +42,15 @@ export function playFanfareSound() {
     playTone(ctx, freq, now + i * 0.08, 0.18, { type: "triangle", gain: 0.12 });
   });
 }
+
+// Extra stort fanfar för pangram — samma uppgång men en oktav högre och med
+// en avslutande drill, så det tydligt känns som en större bedrift.
+export function playPangramSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568.0]; // C5 E5 G5 C6 E6 G6
+  notes.forEach((freq, i) => {
+    playTone(ctx, freq, now + i * 0.07, 0.22, { type: "triangle", gain: 0.13 });
+  });
+}

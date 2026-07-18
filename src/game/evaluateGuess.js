@@ -1,6 +1,6 @@
 import { canFormWord } from "./letters.js";
 import { isValidWord } from "./wordList.js";
-import { isScorable, scoreForWord } from "./scoring.js";
+import { isScorable, scoreForWord, isPangram } from "./scoring.js";
 
 export const GuessResult = {
   OK: "ok",
@@ -23,5 +23,10 @@ export function evaluateGuess(rawWord, sourceWord, sourceCounts, alreadyFound) {
   if (!canFormWord(word, sourceCounts)) return { status: GuessResult.NOT_IN_SOURCE, word };
   if (!isValidWord(word)) return { status: GuessResult.NOT_A_WORD, word };
 
-  return { status: GuessResult.OK, word, score: scoreForWord(word) };
+  return {
+    status: GuessResult.OK,
+    word,
+    score: scoreForWord(word, sourceWord),
+    pangram: isPangram(word, sourceWord),
+  };
 }

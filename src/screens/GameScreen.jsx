@@ -7,7 +7,7 @@ import { totalScore } from "../game/scoring.js";
 import { findWordsInSource } from "../game/findWords.js";
 import { getDictionary } from "../game/wordList.js";
 import { computeLevelTargets } from "../game/levels.js";
-import { playClickSound, playFanfareSound } from "../audio/sounds.js";
+import { playClickSound, playFanfareSound, playPangramSound } from "../audio/sounds.js";
 import WordLengthHistogram from "../components/WordLengthHistogram.jsx";
 import ChallengeBar from "../components/ChallengeBar.jsx";
 import WordLengthModal from "../components/WordLengthModal.jsx";
@@ -112,10 +112,13 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
     () => groupByLength(found.map((f) => f.word)),
     [found]
   );
-  const currentScore = totalScore(found.map((f) => f.word));
+  const currentScore = totalScore(found.map((f) => f.word), sourceWord);
+  // Räknas via totalScore (inte bara längdsumman) så att eventuella
+  // pangram bland de hittabara orden räknas med i maxpoängen — annars kunde
+  // en spelare som hittar ett pangram gå förbi 100% av "det möjliga".
   const totalPossibleScore = useMemo(
-    () => Object.entries(totalByLength).reduce((sum, [length, count]) => sum + Number(length) * count, 0),
-    [totalByLength]
+    () => totalScore(sourceWordList, sourceWord),
+    [sourceWordList, sourceWord]
   );
   const levelTargets = useMemo(
     () => computeLevelTargets(totalPossibleScore),
@@ -125,11 +128,16 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   // { [nivånamn]: elapsedSeconds } — sparas med resultatet för framtida topplistor.
   const [levelTimes, setLevelTimes] = useState({});
   const [highlightLength, setHighlightLength] = useState(null);
+  // Kort golden-glow-puls på bokstavsbrickorna när ett pangram hittas — se
+  // handleSubmit. Rensas efter samma slags timeout som highlightLength.
+  const [pangramPulse, setPangramPulse] = useState(false);
   const highlightTimeoutRef = useRef(null);
+  const pangramTimeoutRef = useRef(null);
   const finishedRef = useRef(false);
   const submittedRef = useRef(false);
 
   useEffect(() => () => clearTimeout(highlightTimeoutRef.current), []);
+  useEffect(() => () => clearTimeout(pangramTimeoutRef.current), []);
 
   useEffect(() => {
     if (tappedIndices.length > 0) setHasTypedOnce(true);
@@ -153,15 +161,15 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   const submitCurrentScore = useCallback(() => {
     if (submittedRef.current) return;
     submittedRef.current = true;
-    onSubmitScore(totalScore(found.map((f) => f.word)), found.map((f) => f.word), levelTimes);
-  }, [found, onSubmitScore, levelTimes]);
+    onSubmitScore(totalScore(found.map((f) => f.word), sourceWord), found.map((f) => f.word), levelTimes);
+  }, [found, onSubmitScore, levelTimes, sourceWord]);
 
   const finish = useCallback(() => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     submitCurrentScore();
-    onFinish(totalScore(found.map((f) => f.word)), found.map((f) => f.word));
-  }, [found, onFinish, submitCurrentScore]);
+    onFinish(totalScore(found.map((f) => f.word), sourceWord), found.map((f) => f.word));
+  }, [found, onFinish, submitCurrentScore, sourceWord]);
 
   useEffect(() => {
     if (freePlay) return; // Tiden räknas inte längre i fri spelning.
@@ -204,8 +212,15 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
   const handleSubmit = () => {
     const result = evaluateGuess(currentWord, sourceWord, sourceCounts, foundWords);
     if (result.status === GuessResult.OK) {
-      playFanfareSound();
-      setFound((f) => [...f, { word: result.word, score: result.score }]);
+      if (result.pangram) {
+        playPangramSound();
+        setPangramPulse(true);
+        clearTimeout(pangramTimeoutRef.current);
+        pangramTimeoutRef.current = setTimeout(() => setPangramPulse(false), 1400);
+      } else {
+        playFanfareSound();
+      }
+      setFound((f) => [...f, { word: result.word, score: result.score, pangram: result.pangram }]);
       setTappedIndices([]);
       setFeedback(null);
       setHighlightLength(result.word.length);
@@ -264,6 +279,11 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
           from { transform: translateX(0); }
           to { transform: translateX(-100%); }
         }
+        @keyframes skrammelPangramGlow {
+          0% { box-shadow: 0 0 0 rgba(255, 215, 0, 0); }
+          30% { box-shadow: 0 0 24px 6px rgba(255, 215, 0, 0.7); }
+          100% { box-shadow: 0 0 0 rgba(255, 215, 0, 0); }
+        }
       `}</style>
 
       <div style={styles.titleRow}>
@@ -321,6 +341,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
 
         {lastFound && (
           <div style={styles.lastFound}>
+            {lastFound.pangram && <span style={styles.pangramBadge}>🌟 PANGRAM! </span>}
             {lastFound.word} <span style={{ color: T.accent }}>+{lastFound.score}</span>
           </div>
         )}
@@ -343,7 +364,14 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
           />
         </div>
 
-        <div style={{ ...styles.tileRowsContainer, gap: `${SOURCE_TILE_GAP}px` }}>
+        <div
+          style={{
+            ...styles.tileRowsContainer,
+            gap: `${SOURCE_TILE_GAP}px`,
+            borderRadius: 16,
+            animation: pangramPulse ? "skrammelPangramGlow 1.4s ease-out" : "none",
+          }}
+        >
           {tileRows.map((rowIndices, rowIdx) => (
             <div key={rowIdx} style={{ ...styles.tileRow, gap: `${SOURCE_TILE_GAP}px` }}>
               {rowIndices.map((i, posInRow) => {
@@ -492,6 +520,7 @@ const styles = {
     color: T.tileText,
   },
   lastFound: { color: T.muted, fontSize: "0.9rem", fontWeight: 600, textAlign: "center" },
+  pangramBadge: { color: "#ffd700", fontWeight: 800 },
   bottomArea: { width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 },
   feedback: {
     color: T.accent2, fontSize: "0.9rem", fontWeight: 600, textAlign: "center",

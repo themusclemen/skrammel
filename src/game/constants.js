@@ -1,6 +1,12 @@
 export const MIN_WORD_LENGTH = 2;
 export const GAME_DURATION_SECONDS = 5 * 60;
 
+// Bonuspoäng för ett pangram — ett hittat ord som använder ALLA bokstäver i
+// källordet (den svåraste sortens fynd). Källordet självt räknas inte
+// (evaluateGuess utesluter det separat), så detta gäller bara andra
+// fullängds-anagram, t.ex. "KERAMIKEN" av källordet "MEKANIKER".
+export const PANGRAM_BONUS = 10;
+
 // Nivåtrappa: hur stor andel av den totalt möjliga poängen (alla hittabara
 // ord i källordet) varje nivå kräver. Testvärden, justera vid behov.
 export const CHALLENGE_LEVELS = [
