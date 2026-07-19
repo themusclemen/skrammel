@@ -284,6 +284,12 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
           30% { box-shadow: 0 0 24px 6px rgba(255, 215, 0, 0.7); }
           100% { box-shadow: 0 0 0 rgba(255, 215, 0, 0); }
         }
+        .skrammel-btn {
+          transition: transform 0.08s ease;
+        }
+        .skrammel-btn:active:not(:disabled) {
+          transform: scale(0.94);
+        }
       `}</style>
 
       <div style={styles.titleRow}>
@@ -383,6 +389,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
                   <div key={i} style={styles.tileWrap}>
                     <button
                       data-tile-index={i}
+                      className="skrammel-btn"
                       onClick={() => handleTileTap(i)}
                       disabled={used}
                       style={{
@@ -402,6 +409,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
 
         <div style={styles.controlsRow}>
           <button
+            className="skrammel-btn"
             onClick={() => setShowMenu(true)}
             style={styles.iconButton}
             aria-label="Meny"
@@ -409,6 +417,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
             …
           </button>
           <button
+            className="skrammel-btn"
             onClick={handleClearAll}
             disabled={tappedIndices.length === 0}
             style={{ ...styles.clearAllButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
@@ -416,6 +425,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
             RENSA
           </button>
           <button
+            className="skrammel-btn"
             onClick={handleBackspace}
             disabled={tappedIndices.length === 0}
             style={{ ...styles.iconButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
@@ -424,6 +434,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
             ←
           </button>
           <button
+            className="skrammel-btn"
             onClick={handleSubmit}
             disabled={tappedIndices.length === 0}
             style={{ ...styles.submitButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
@@ -468,6 +479,15 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
     </div>
   );
 }
+
+// touchAction: "manipulation" hindrar mobilwebbläsare från att vänta för att
+// avgöra om ett tryck är en dubbeltryckning (zoom) eller vill scrolla — utan
+// den kan ett lätt fingerskift under trycket få klicket att helt utebli,
+// vilket är den troliga orsaken bakom "lynniga" bokstavsbrickor.
+const INTERACTIVE_STYLE = {
+  touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
+  userSelect: "none", WebkitUserSelect: "none",
+};
 
 const styles = {
   page: {
@@ -542,14 +562,17 @@ const styles = {
   iconButton: {
     flex: 1, height: "2.8rem", borderRadius: 8, border: `1px solid ${T.border}`,
     background: T.surface, color: T.text, fontWeight: 700, fontSize: "1.3rem", cursor: "pointer", padding: 0,
+    ...INTERACTIVE_STYLE,
   },
   clearAllButton: {
     flex: 1, height: "2.8rem", borderRadius: 8, border: `1px solid ${T.border}`,
     background: T.surface, color: T.text, fontWeight: 600, fontSize: "1rem", cursor: "pointer",
+    ...INTERACTIVE_STYLE,
   },
   submitButton: {
     flex: 1, height: "2.8rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
+    ...INTERACTIVE_STYLE,
   },
   tileWrap: {
     flex: `0 1 ${SOURCE_TILE_SIZE}`, minWidth: 0, position: "relative",
@@ -559,6 +582,7 @@ const styles = {
     display: "flex", alignItems: "center", justifyContent: "center",
     background: T.tile, border: `1px solid ${T.tileBorder}`, borderRadius: 10, fontWeight: 700,
     color: T.tileText, cursor: "pointer", padding: 0,
+    ...INTERACTIVE_STYLE,
   },
   tileUsed: {
     background: T.tileEmpty, border: `1px dashed ${T.tileEmptyBorder}`, cursor: "default",

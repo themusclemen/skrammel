@@ -369,3 +369,53 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
 4. Daglig ord-kuration/publicering sker nu manuellt via `/admin` (se
    ovan) — fungerar, men är fortfarande en manuell process, inte
    automatiserad.
+
+---
+
+## Native app-plan (App Store / Google Play) — beslutad 2026-07-19
+
+Användaren har bestämt att Skrammel ska bli en native app i
+App Store och Google Play, inte bara en installerbar PWA. Vald metod:
+**Capacitor** runt den befintliga React/Vite-koden (ingen omskrivning) —
+samma princip som att återanvända minikors mönster: minsta nya
+verktygslåda som löser jobbet.
+
+**Fas 1 — Wrappa appen (kod, kan göras direkt i repot):**
+- Lägg till `@capacitor/core`, `@capacitor/cli`, `@capacitor/ios`,
+  `@capacitor/android`
+- `capacitor.config.json` (`appId`, `appName`, `webDir: dist`)
+- Koppla Androids hårdvaruknapp "tillbaka" till samma
+  avslutalogik som `GameMenuModal.jsx` redan har — appen har inget
+  react-router (bara state-baserad skärmväxling i `App.jsx`), så utan
+  detta stänger tillbaka-knappen hela appen istället för att navigera
+  bakåt i spelet
+- Safe-area/status bar-styling för skärmar med hack/notch
+- `public/ordlista.txt` byggs redan in i bundlen — ingen extra åtgärd
+  behövs för att den ska funka offline i native-skalet
+
+**Fas 2 — Visuell identitet för butikerna (design, inte kod ännu):**
+- App-ikon och splash screen, utgår från `theme.js`s lime/coral-tema
+- Skärmdumpar för butikslistorna
+
+**Fas 3 — Konton & juridik (manuellt, kräver användaren):**
+- Apple Developer-konto (99 USD/år)
+- Google Play Console-konto (25 USD engångs)
+- Integritetspolicy (obligatorisk i båda butikerna — Skrammel samlar
+  in e-post vid signup)
+- Åldersgräns/klassificering i respektive butik
+
+**Fas 4 — Native build & test:**
+- Xcode-projekt för iOS, TestFlight-beta
+- Android Studio-projekt, signerad build, internt testspår i Play
+  Console
+- Riktig enhetstestning (inte bara webbläsare/Playwright)
+
+**Fas 5 — Städning innan lansering:**
+- Rensa kvarvarande testkonton i `skrammel-beta` (se "Städbehov" ovan)
+- Överväg crash-/felrapportering (t.ex. Sentry) — finns inte idag
+
+**Kända luckor identifierade 2026-07-19, inte blockerande för fortsatt
+prototyp-användning men bör lösas innan butiksinlämning:** inga
+app-ikoner/splash-assets finns än (`public/` har bara `ordlista.txt`),
+ingen integritetspolicy skriven, kvarvarande testkonton i produktions-
+Supabase, ingen crash-/felrapportering.
