@@ -4,3 +4,5 @@ dist
 .env.local
 .idea
 supabase/.temp
+.vercel
+.env*

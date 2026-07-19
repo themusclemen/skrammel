@@ -3,10 +3,10 @@ import { T } from "../theme.js";
 import { useShare } from "../hooks/useShare.js";
 import { buildInviteUrl, fetchFriends, removeFriendship } from "../api/friends.js";
 
-function FriendRow({ friend, onRemove }) {
+function FriendRow({ friend, challengerName, onRemove }) {
   const { share, copied } = useShare();
   const handleChallenge = () => {
-    share(`🎯 ${friend.friendName} utmanar dig till dagens Skrammel! Hitta fler ord än mig: ${window.location.origin}`);
+    share(`🎯 ${challengerName} utmanar dig till dagens Skrammel! Hitta fler ord än mig: ${window.location.origin}`);
   };
 
   return (
@@ -58,7 +58,7 @@ export default function FriendsScreen({ user, displayName, onBack }) {
       {friends && friends.length > 0 && (
         <div style={styles.list}>
           {friends.map((f) => (
-            <FriendRow key={f.friendshipId} friend={f} onRemove={handleRemove} />
+            <FriendRow key={f.friendshipId} friend={f} challengerName={inviterName} onRemove={handleRemove} />
           ))}
         </div>
       )}
