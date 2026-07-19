@@ -4,7 +4,7 @@ import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
 import { submitScore, fetchUserPlayedDates, hasPlayedDate, fetchUserStats } from "./api/scores.js";
 import { loadWordList } from "./game/wordList.js";
 import { computeStreak } from "./game/streak.js";
-import { bestLevelReached } from "./game/levels.js";
+import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
@@ -125,8 +125,8 @@ export default function App() {
     fetchUserStats(user.id).then(setUserStats); // Uppdaterar streck/bästa nivå direkt till resultatskärmen.
   }, [user, displayName, playingDate, isReplay]);
 
-  const handleGameFinish = useCallback((score, words) => {
-    setLastResult({ score, words });
+  const handleGameFinish = useCallback((score, words, totalPossibleScore) => {
+    setLastResult({ score, words, todayLevel: levelReachedForScore(score, totalPossibleScore) });
     setScreen("result");
   }, []);
 
@@ -173,6 +173,8 @@ export default function App() {
       <ResultScreen
         score={lastResult.score}
         words={lastResult.words}
+        todayLevel={lastResult.todayLevel}
+        date={playingDate ?? todayStr()}
         user={user}
         streak={streak}
         bestLevel={bestLevel}

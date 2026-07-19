@@ -39,6 +39,21 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   pronomen och interjektioner. Källordet självt räknas inte som ett
   hittat ord. Se architecture.md för detaljer.
 
+## Byggt
+
+- **Delningsfunktion:** "Dela resultat"-knapp på `ResultScreen`, spoiler-
+  fri (poäng, ord-antal, dagens nådda nivå — aldrig vilka ord som
+  hittades), likt Wordle/NYT Spelling Bee. `navigator.share` där det
+  finns, annars kopiering till urklipp. Byggd 2026-07-19, ingen ny
+  backend.
+
+## Planerat (beslutat, ej byggt än)
+
+- **Vänhantering:** lägga till vänner och utmana dem (jämföra resultat/
+  topplista bland vänner, inte bara global topplista). Beslutad
+  2026-07-19 som komplement till delningsfunktionen — driver
+  återkommande spelande via socialt tryck snarare än ren virulens.
+
 ## Öppna frågor (ej beslutade än)
 
 - Hur källordet för varje dag väljs/kureras (manuellt likt minikors
@@ -47,6 +62,3 @@ bilda av bokstäverna i källordet, inom 5 minuter.
 - Om repriser/omspel av samma dags ord ska vara tillåtna, och om det i så
   fall påverkar topplistan (minikors-mönstret är att bara första
   försöket räknas).
-- Streak-system, vänner/utmaningar, delning — inget av detta är avgjort
-  för Skrammel än (kan bli aktuellt senare, liknande minikors
-  funktioner).

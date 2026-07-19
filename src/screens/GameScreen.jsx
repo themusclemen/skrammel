@@ -168,7 +168,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
     if (finishedRef.current) return;
     finishedRef.current = true;
     submitCurrentScore();
-    onFinish(totalScore(found.map((f) => f.word), sourceWord), found.map((f) => f.word));
+    onFinish(totalScore(found.map((f) => f.word), sourceWord), found.map((f) => f.word), totalPossibleScore);
   }, [found, onFinish, submitCurrentScore, sourceWord]);
 
   useEffect(() => {

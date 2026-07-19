@@ -369,6 +369,20 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
 4. Daglig ord-kuration/publicering sker nu manuellt via `/admin` (se
    ovan) — fungerar, men är fortfarande en manuell process, inte
    automatiserad.
+5. **Delningsfunktion** (byggd 2026-07-19, se `skrammel-spec.md`) — en
+   "Dela resultat"-knapp på `ResultScreen` (`buildShareText` bygger
+   texten: datum, poäng, ord-antal och dagens nådda nivå via
+   `levelReachedForScore` i `src/game/levels.js`, aldrig vilka ord som
+   hittades). `navigator.share` där tillgängligt, annars
+   `navigator.clipboard.writeText` med en "Kopierat!"-bekräftelse.
+   `GameScreen.jsx`s `onFinish` skickar nu även `totalPossibleScore`
+   vidare så `App.jsx` kan räkna ut dagens nivå. Ingen ny backend.
+6. **Vänhantering** (beslutad 2026-07-19, se `skrammel-spec.md`) — lägga
+   till vänner och utmana dem. Kräver ny datamodell i Supabase (typiskt
+   en `friendships`/`friend_requests`-tabell, RLS: bara de två inblandade
+   användarna får se/skriva en rad) samt en vän-topplista utöver den
+   globala i `LeaderboardScreen.jsx`. Inte påbörjat — ingen tabell eller
+   UI finns än.
 
 ---
 

@@ -19,6 +19,18 @@ export function computeLevelTargets(totalPossibleScore) {
 // GameScreen.jsx). Tar en lista av level_times-objekt, ett per spelat
 // resultat, och returnerar namnet på den högsta nivån som förekommer i
 // någon av dem, eller null om ingen nivå någonsin nåtts.
+// Vilken nivå ett givet resultat räcker till, utifrån samma måltrappa som
+// ChallengeBar visar under spelet — används för spoilerfri delning på
+// ResultScreen (visar dagens nådda nivå, inte vilka ord som hittades).
+export function levelReachedForScore(score, totalPossibleScore) {
+  const targets = computeLevelTargets(totalPossibleScore);
+  let reached = null;
+  for (const level of targets) {
+    if (score >= level.target) reached = level.name;
+  }
+  return reached;
+}
+
 export function bestLevelReached(levelTimesList) {
   let bestIndex = -1;
   for (const levelTimes of levelTimesList) {
