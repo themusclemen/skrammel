@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { T } from "../theme.js";
+import { useShare } from "../hooks/useShare.js";
 
 // Spoilerfri delningstext (likt Wordle/NYT Spelling Bee) — poäng, nivå och
 // antal ord, aldrig vilka ord som faktiskt hittades.
@@ -11,22 +11,8 @@ function buildShareText(date, score, wordCount, todayLevel) {
 }
 
 export default function ResultScreen({ score, words, todayLevel, date, user, streak, bestLevel, onPlayHome, onLeaderboard, onLogin }) {
-  const [shareCopied, setShareCopied] = useState(false);
-
-  const handleShare = async () => {
-    const text = buildShareText(date, score, words.length, todayLevel);
-    if (navigator.share) {
-      try {
-        await navigator.share({ text });
-      } catch {
-        // Avbruten delning (t.ex. användaren stängde dialogen) — inget att göra.
-      }
-      return;
-    }
-    await navigator.clipboard.writeText(text);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
-  };
+  const { share, copied } = useShare();
+  const handleShare = () => share(buildShareText(date, score, words.length, todayLevel));
 
   return (
     <div style={styles.page}>
@@ -48,7 +34,7 @@ export default function ResultScreen({ score, words, todayLevel, date, user, str
       </div>
 
       <button onClick={handleShare} style={styles.shareButton}>
-        {shareCopied ? "Kopierat!" : "Dela resultat"}
+        {copied ? "Kopierat!" : "Dela resultat"}
       </button>
 
       {!user && (

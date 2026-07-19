@@ -1,6 +1,6 @@
 import { T } from "../theme.js";
 
-export default function HomeScreen({ user, displayName, streak, bestLevel, onPlay, onArchive, onLeaderboard, onLogin, onSignOut }) {
+export default function HomeScreen({ user, displayName, streak, bestLevel, onPlay, onArchive, onLeaderboard, onFriends, onLogin, onSignOut }) {
   return (
     <div style={styles.page}>
       <div style={styles.titleRow}>
@@ -23,6 +23,7 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, onPla
       <div style={styles.secondaryRow}>
         <button onClick={onArchive} style={styles.secondaryButton}>Tidigare utmaningar</button>
         <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista</button>
+        {user && <button onClick={onFriends} style={styles.secondaryButton}>Vänner</button>}
       </div>
 
       <div style={styles.authRow}>

@@ -6,6 +6,7 @@ import { loadWordList } from "./game/wordList.js";
 import { computeStreak } from "./game/streak.js";
 import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
+import { parseInviteFromLocation, confirmFriendship } from "./api/friends.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
@@ -14,7 +15,9 @@ import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import ArchiveScreen from "./screens/ArchiveScreen.jsx";
 import AuthScreen from "./screens/AuthScreen.jsx";
 import AdminWordsScreen from "./screens/AdminWordsScreen.jsx";
+import FriendsScreen from "./screens/FriendsScreen.jsx";
 import ReplayConfirmModal from "./components/ReplayConfirmModal.jsx";
+import FriendInviteModal from "./components/FriendInviteModal.jsx";
 
 function pad(n) { return String(n).padStart(2, "0"); }
 
@@ -45,6 +48,10 @@ export default function App() {
   const [showTodayReplayConfirm, setShowTodayReplayConfirm] = useState(false);
   // Underlag för spelstreck och bästa nivå — se HomeScreen/ResultScreen.
   const [userStats, setUserStats] = useState({ playedDates: [], levelTimesList: [] });
+  // Läst en gång ur adressraden vid mount (/friend/<uuid>?name=...) — se
+  // src/api/friends.js. Bekräftelsen (FriendInviteModal) är det som
+  // faktiskt skapar vänskapsraden, inte länken i sig.
+  const [pendingInvite, setPendingInvite] = useState(() => parseInviteFromLocation());
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -66,6 +73,24 @@ export default function App() {
     if (!user) { setUserStats({ playedDates: [], levelTimesList: [] }); return; }
     fetchUserStats(user.id).then(setUserStats);
   }, [user]);
+
+  const clearInviteUrl = useCallback(() => {
+    if (window.location.pathname.startsWith("/friend/")) window.history.replaceState({}, "", "/");
+  }, []);
+
+  // En öppnad inbjudningslänk utan inloggning tar direkt till inloggning
+  // istället för att bara landa på hemskärmen utan förklaring.
+  useEffect(() => {
+    if (pendingInvite && user === null && screen === "home") setScreen("auth");
+  }, [pendingInvite, user, screen]);
+
+  // Egen länk öppnad (t.ex. testat sin egen delning) — inget att bekräfta.
+  useEffect(() => {
+    if (pendingInvite && user && pendingInvite.inviterId === user.id) {
+      setPendingInvite(null);
+      clearInviteUrl();
+    }
+  }, [pendingInvite, user, clearInviteUrl]);
 
   const streak = useMemo(
     () => computeStreak(userStats.playedDates, todayStr()),
@@ -134,6 +159,20 @@ export default function App() {
     if (isSupabaseConfigured) supabase.auth.signOut();
   }, []);
 
+  const handleConfirmInvite = useCallback(async () => {
+    if (!pendingInvite || !user) return;
+    const name = displayName ?? user.email.split("@")[0];
+    await confirmFriendship(user.id, name, pendingInvite.inviterId, pendingInvite.inviterName);
+    setPendingInvite(null);
+    clearInviteUrl();
+    setScreen("friends");
+  }, [pendingInvite, user, displayName, clearInviteUrl]);
+
+  const handleCancelInvite = useCallback(() => {
+    setPendingInvite(null);
+    clearInviteUrl();
+  }, [clearInviteUrl]);
+
   if (user === undefined || !wordListReady) {
     return (
       <div style={{
@@ -192,7 +231,14 @@ export default function App() {
         onDateChange={setLeaderboardDate}
         onHome={() => navigate("home")}
         onArchive={openArchive}
+        user={user}
       />
+    );
+  }
+
+  if (screen === "friends" && user) {
+    return (
+      <FriendsScreen user={user} displayName={displayName} onBack={() => navigate("home")} />
     );
   }
 
@@ -227,6 +273,7 @@ export default function App() {
         onPlay={handlePlayToday}
         onArchive={openArchive}
         onLeaderboard={() => goToLeaderboard(todayStr())}
+        onFriends={() => navigate("friends")}
         onLogin={() => navigate("auth")}
         onSignOut={handleSignOut}
       />
@@ -234,6 +281,13 @@ export default function App() {
         <ReplayConfirmModal
           onConfirm={() => { setShowTodayReplayConfirm(false); startGame(todayStr(), { isReplay: true }); }}
           onCancel={() => setShowTodayReplayConfirm(false)}
+        />
+      )}
+      {pendingInvite && user && pendingInvite.inviterId !== user.id && (
+        <FriendInviteModal
+          inviterName={pendingInvite.inviterName}
+          onConfirm={handleConfirmInvite}
+          onCancel={handleCancelInvite}
         />
       )}
     </>

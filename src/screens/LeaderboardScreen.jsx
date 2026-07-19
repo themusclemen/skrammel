@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { T } from "../theme.js";
 import { fetchLeaderboard } from "../api/scores.js";
+import { fetchFriendsLeaderboard } from "../api/friends.js";
 
 const MONTH_NAMES = [
   "januari", "februari", "mars", "april", "maj", "juni",
@@ -27,7 +28,8 @@ function formatDate(dateStr) {
   return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
 }
 
-export default function LeaderboardScreen({ date, onDateChange, onHome, onArchive }) {
+export default function LeaderboardScreen({ date, onDateChange, onHome, onArchive, user }) {
+  const [scope, setScope] = useState("global"); // "global" | "friends"
   const [rows, setRows] = useState(null);
   const [error, setError] = useState(null);
   const today = todayStr();
@@ -36,12 +38,30 @@ export default function LeaderboardScreen({ date, onDateChange, onHome, onArchiv
   useEffect(() => {
     setRows(null);
     setError(null);
-    fetchLeaderboard(date).then(setRows).catch((err) => setError(err.message));
-  }, [date]);
+    const load = scope === "friends" && user ? fetchFriendsLeaderboard(date, user.id) : fetchLeaderboard(date);
+    load.then(setRows).catch((err) => setError(err.message));
+  }, [date, scope, user]);
 
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>Topplista</h2>
+
+      {user && (
+        <div style={styles.scopeRow}>
+          <button
+            onClick={() => setScope("global")}
+            style={{ ...styles.scopeButton, ...(scope === "global" ? styles.scopeButtonActive : null) }}
+          >
+            Global
+          </button>
+          <button
+            onClick={() => setScope("friends")}
+            style={{ ...styles.scopeButton, ...(scope === "friends" ? styles.scopeButtonActive : null) }}
+          >
+            Vänner
+          </button>
+        </div>
+      )}
 
       <div style={styles.dateNav}>
         <button onClick={() => onDateChange(addDays(date, -1))} style={styles.dateNavButton}>‹</button>
@@ -88,6 +108,12 @@ const styles = {
     padding: "1.5rem", display: "flex", flexDirection: "column", alignItems: "center",
     gap: "1rem", textAlign: "center",
   },
+  scopeRow: { display: "flex", gap: "0.4rem" },
+  scopeButton: {
+    padding: "0.4rem 0.9rem", borderRadius: 999, border: `1px solid ${T.border}`,
+    background: "transparent", color: T.muted, fontSize: "0.85rem", cursor: "pointer",
+  },
+  scopeButtonActive: { background: T.accent, borderColor: T.accent, color: "#121212", fontWeight: 700 },
   dateNav: { display: "flex", alignItems: "center", gap: "1rem", marginTop: "-0.5rem" },
   dateNavButton: {
     background: T.surface, border: `1px solid ${T.border}`, color: T.text, borderRadius: 8,

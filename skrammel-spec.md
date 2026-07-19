@@ -46,13 +46,11 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   hittades), likt Wordle/NYT Spelling Bee. `navigator.share` där det
   finns, annars kopiering till urklipp. Byggd 2026-07-19, ingen ny
   backend.
-
-## Planerat (beslutat, ej byggt än)
-
-- **Vänhantering:** lägga till vänner och utmana dem (jämföra resultat/
-  topplista bland vänner, inte bara global topplista). Beslutad
-  2026-07-19 som komplement till delningsfunktionen — driver
-  återkommande spelande via socialt tryck snarare än ren virulens.
+- **Vänhantering:** lägg till/ta bort vänner, vän-topplista, utmana en
+  vän. Vänner läggs till via en delad inbjudningslänk (`/friend/<id>`),
+  inte namnsökning eller e-post — ny `FriendsScreen`, ny `friendships`-
+  tabell i Supabase. "Utmana" delar en inbjudan via samma delnings-UI som
+  resultatdelning; ingen ny spellogik. Byggd 2026-07-19.
 
 ## Öppna frågor (ej beslutade än)
 

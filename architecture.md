@@ -373,16 +373,40 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
    "Dela resultat"-knapp på `ResultScreen` (`buildShareText` bygger
    texten: datum, poäng, ord-antal och dagens nådda nivå via
    `levelReachedForScore` i `src/game/levels.js`, aldrig vilka ord som
-   hittades). `navigator.share` där tillgängligt, annars
-   `navigator.clipboard.writeText` med en "Kopierat!"-bekräftelse.
+   hittades). Delning/kopiering själv sitter i `src/hooks/useShare.js`
+   (`navigator.share` där tillgängligt, annars
+   `navigator.clipboard.writeText` med en "Kopierat!"-bekräftelse) —
+   samma hook återanvänds av vänhanteringen nedan.
    `GameScreen.jsx`s `onFinish` skickar nu även `totalPossibleScore`
    vidare så `App.jsx` kan räkna ut dagens nivå. Ingen ny backend.
-6. **Vänhantering** (beslutad 2026-07-19, se `skrammel-spec.md`) — lägga
-   till vänner och utmana dem. Kräver ny datamodell i Supabase (typiskt
-   en `friendships`/`friend_requests`-tabell, RLS: bara de två inblandade
-   användarna får se/skriva en rad) samt en vän-topplista utöver den
-   globala i `LeaderboardScreen.jsx`. Inte påbörjat — ingen tabell eller
-   UI finns än.
+6. **Vänhantering** (byggd 2026-07-19, se `skrammel-spec.md`) — lägg
+   till/ta bort vänner, vän-topplista, utmana en vän. Ny tabell
+   `friendships` i `supabase/schema.sql` (RLS: bara de två inblandade
+   användarna får se/skriva/ta bort en rad; `requester_id`/`addressee_id`
+   + genererade `user_a`/`user_b`-kolumner med `unique` förhindrar
+   dubbletter oavsett riktning). **Manuellt steg återstår:** SQL:en är
+   skriven men inte körd mot det live `skrammel-beta`-projektet — måste
+   klistras in i Supabase SQL-editorn innan funktionen fungerar i
+   produktion.
+
+   Vänner läggs till via en delad inbjudningslänk
+   (`buildInviteUrl`/`parseInviteFromLocation` i `src/api/friends.js`,
+   samma no-router-mönster som `/admin`-specialfallet i `App.jsx`) — inte
+   namnsökning eller e-post, för att slippa återuppliva den döda
+   `profiles`-tabellen och namnkollisioner. En rad i `friendships` = en
+   bekräftad vänskap, skriven av mottagaren när de öppnar länken och
+   bekräftar i `FriendInviteModal.jsx` (mirror av
+   `ReplayConfirmModal.jsx`); länken bär bara avsändarens user-id, ingen
+   kryptografisk token — en känd, medveten avvägning eftersom all
+   resultatdata redan är publik. Visningsnamn denormaliseras in i raden
+   (samma mönster som `scores.display_name`) eftersom klienten inte får
+   läsa `auth.users`.
+
+   Ny `src/screens/FriendsScreen.jsx` (bjud in/ta bort/utmana, "Utmana"
+   återanvänder `useShare` med ett generiskt inbjudningsmeddelande, ingen
+   dynamisk poängdata). `LeaderboardScreen.jsx` har en ny "Global"/
+   "Vänner"-flik (`fetchFriendsLeaderboard` i `src/api/friends.js`,
+   samma `scores`-tabell, filtrerad på vän-id:n). Ingen ny spellogik.
 
 ---
 
