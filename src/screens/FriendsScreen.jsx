@@ -3,17 +3,11 @@ import { T } from "../theme.js";
 import { useShare } from "../hooks/useShare.js";
 import { buildInviteUrl, fetchFriends, removeFriendship } from "../api/friends.js";
 
-function FriendRow({ friend, challengerName, onRemove }) {
-  const { share, copied } = useShare();
-  const handleChallenge = () => {
-    share(`🎯 ${challengerName} utmanar dig till dagens Skrammel! Hitta fler ord än mig: ${window.location.origin}`);
-  };
-
+function FriendRow({ friend, onRemove }) {
   return (
     <div style={styles.row}>
       <span>{friend.friendName}</span>
       <div style={styles.rowActions}>
-        <button onClick={handleChallenge} style={styles.smallButton}>{copied ? "Kopierat!" : "Utmana"}</button>
         <button onClick={() => onRemove(friend.friendshipId)} style={styles.smallButtonMuted}>Ta bort</button>
       </div>
     </div>
@@ -58,7 +52,7 @@ export default function FriendsScreen({ user, displayName, onBack }) {
       {friends && friends.length > 0 && (
         <div style={styles.list}>
           {friends.map((f) => (
-            <FriendRow key={f.friendshipId} friend={f} challengerName={inviterName} onRemove={handleRemove} />
+            <FriendRow key={f.friendshipId} friend={f} onRemove={handleRemove} />
           ))}
         </div>
       )}
@@ -86,10 +80,6 @@ const styles = {
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`,
   },
   rowActions: { display: "flex", gap: "0.4rem" },
-  smallButton: {
-    padding: "0.4rem 0.7rem", borderRadius: 8, border: "none",
-    background: T.accent, color: "#121212", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer",
-  },
   smallButtonMuted: {
     padding: "0.4rem 0.7rem", borderRadius: 8, border: `1px solid ${T.border}`,
     background: "transparent", color: T.muted, fontSize: "0.8rem", cursor: "pointer",

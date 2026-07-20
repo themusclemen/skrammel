@@ -2,11 +2,16 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
 import { submitScore, fetchUserPlayedDates, hasPlayedDate, fetchUserStats } from "./api/scores.js";
-import { loadWordList } from "./game/wordList.js";
+import { loadWordList, getDictionary } from "./game/wordList.js";
 import { computeStreak } from "./game/streak.js";
 import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
+import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
 import { parseInviteFromLocation, confirmFriendship } from "./api/friends.js";
+import {
+  pickBlixtWord, createChallenge, respondToChallenge, submitBlixtScore,
+  fetchMyChallenges, fetchRandomOpponent, classifyChallenge,
+} from "./api/blixt.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
@@ -16,6 +21,9 @@ import ArchiveScreen from "./screens/ArchiveScreen.jsx";
 import AuthScreen from "./screens/AuthScreen.jsx";
 import AdminWordsScreen from "./screens/AdminWordsScreen.jsx";
 import FriendsScreen from "./screens/FriendsScreen.jsx";
+import BlixtScreen from "./screens/BlixtScreen.jsx";
+import BlixtChooseOpponentScreen from "./screens/BlixtChooseOpponentScreen.jsx";
+import BlixtResultScreen from "./screens/BlixtResultScreen.jsx";
 import ReplayConfirmModal from "./components/ReplayConfirmModal.jsx";
 import FriendInviteModal from "./components/FriendInviteModal.jsx";
 
@@ -52,6 +60,14 @@ export default function App() {
   // src/api/friends.js. Bekräftelsen (FriendInviteModal) är det som
   // faktiskt skapar vänskapsraden, inte länken i sig.
   const [pendingInvite, setPendingInvite] = useState(() => parseInviteFromLocation());
+  // Blixtpussel v2 (async 1-mot-1-utmaning, se api/blixt.js): oriktad runda
+  // pågår / väntar på mottagarval / opponenten spelar en accepterad
+  // utmaning / opponentens resultat efteråt.
+  const [blixtSourceWord, setBlixtSourceWord] = useState(null);
+  const [blixtDraftResult, setBlixtDraftResult] = useState(null); // { score, words, sourceWord }
+  const [activeBlixtChallenge, setActiveBlixtChallenge] = useState(null);
+  const [blixtResult, setBlixtResult] = useState(null); // { myScore, myWords, opponentScore, opponentName }
+  const [myBlixtChallenges, setMyBlixtChallenges] = useState([]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -73,6 +89,21 @@ export default function App() {
     if (!user) { setUserStats({ playedDates: [], levelTimesList: [] }); return; }
     fetchUserStats(user.id).then(setUserStats);
   }, [user]);
+
+  const refreshBlixtChallenges = useCallback(() => {
+    if (!user) { setMyBlixtChallenges([]); return Promise.resolve(); }
+    return fetchMyChallenges(user.id).then(setMyBlixtChallenges);
+  }, [user]);
+
+  useEffect(() => { refreshBlixtChallenges(); }, [refreshBlixtChallenges]);
+
+  const pendingBlixtCount = useMemo(() => {
+    if (!user) return 0;
+    return myBlixtChallenges.filter((c) => {
+      const status = classifyChallenge(c, user.id);
+      return status === "needs_response" || status === "your_turn";
+    }).length;
+  }, [myBlixtChallenges, user]);
 
   const clearInviteUrl = useCallback(() => {
     if (window.location.pathname.startsWith("/friend/")) window.history.replaceState({}, "", "/");
@@ -173,6 +204,94 @@ export default function App() {
     clearInviteUrl();
   }, [clearInviteUrl]);
 
+  const handlePlayBlixt = useCallback(() => {
+    setBlixtSourceWord(pickBlixtWord(getDictionary()));
+    setScreen("blixt-play");
+  }, []);
+
+  const handleBlixtPlayFinish = useCallback((score, words) => {
+    setBlixtDraftResult({ score, words, sourceWord: blixtSourceWord });
+    setScreen("blixt-choose");
+  }, [blixtSourceWord]);
+
+  const handleChallengeFriend = useCallback(async (opponentId, opponentName) => {
+    if (!user || !blixtDraftResult) return;
+    const name = displayName ?? user.email.split("@")[0];
+    await createChallenge(
+      user.id, name, opponentId, opponentName,
+      blixtDraftResult.sourceWord, blixtDraftResult.score, blixtDraftResult.words
+    );
+    await refreshBlixtChallenges();
+    setBlixtDraftResult(null);
+    setScreen("blixt-hub");
+  }, [user, displayName, blixtDraftResult, refreshBlixtChallenges]);
+
+  // Slumpar en motståndare och försöker skapa utmaningen; om insert avvisas
+  // (mottagarens 20-tak nått) provas en ny kandidat, upp till 5 försök.
+  const handleChallengeRandom = useCallback(async () => {
+    if (!user || !blixtDraftResult) return;
+    const name = displayName ?? user.email.split("@")[0];
+    const openOpponentIds = myBlixtChallenges
+      .filter((c) => c.status === "pending" || c.status === "accepted")
+      .map((c) => (c.creator_id === user.id ? c.opponent_id : c.creator_id));
+    const excludeIds = [user.id, ...openOpponentIds];
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = await fetchRandomOpponent(user.id, excludeIds);
+      if (!candidate) break;
+      try {
+        await createChallenge(
+          user.id, name, candidate.opponentId, candidate.opponentName,
+          blixtDraftResult.sourceWord, blixtDraftResult.score, blixtDraftResult.words
+        );
+        await refreshBlixtChallenges();
+        setBlixtDraftResult(null);
+        setScreen("blixt-hub");
+        return;
+      } catch {
+        excludeIds.push(candidate.opponentId);
+      }
+    }
+    throw new Error("Hittade ingen ledig motståndare just nu, försök igen senare.");
+  }, [user, displayName, blixtDraftResult, myBlixtChallenges, refreshBlixtChallenges]);
+
+  const handleSkipBlixtChallenge = useCallback(() => {
+    setBlixtDraftResult(null);
+    setScreen("blixt-hub");
+  }, []);
+
+  const handleRespondToChallenge = useCallback(async (challengeId, accept) => {
+    await respondToChallenge(challengeId, accept);
+    await refreshBlixtChallenges();
+  }, [refreshBlixtChallenges]);
+
+  const handlePlayAcceptedChallenge = useCallback((challenge) => {
+    setActiveBlixtChallenge(challenge);
+    setScreen("blixt-respond-play");
+  }, []);
+
+  const handleBlixtResponseFinish = useCallback(async (score, words) => {
+    if (!user || !activeBlixtChallenge) return;
+    const name = displayName ?? user.email.split("@")[0];
+    await submitBlixtScore(activeBlixtChallenge.id, user.id, name, score, words);
+    setBlixtResult({
+      myScore: score,
+      myWords: words,
+      opponentScore: activeBlixtChallenge.blixt_scores?.find(
+        (s) => s.user_id === activeBlixtChallenge.creator_id
+      )?.score ?? 0,
+      opponentName: activeBlixtChallenge.creator_display_name,
+    });
+    setActiveBlixtChallenge(null);
+    await refreshBlixtChallenges();
+    setScreen("blixt-result");
+  }, [user, displayName, activeBlixtChallenge, refreshBlixtChallenges]);
+
+  const goToBlixt = useCallback(() => {
+    refreshBlixtChallenges();
+    setScreen("blixt-hub");
+  }, [refreshBlixtChallenges]);
+
   if (user === undefined || !wordListReady) {
     return (
       <div style={{
@@ -205,6 +324,68 @@ export default function App() {
 
   if (screen === "game" && sourceWord) {
     return <GameScreen sourceWord={sourceWord} onSubmitScore={handleSubmitScore} onFinish={handleGameFinish} />;
+  }
+
+  if (screen === "blixt-play" && blixtSourceWord) {
+    return (
+      <GameScreen
+        sourceWord={blixtSourceWord}
+        durationSeconds={BLIXT_DURATION_SECONDS}
+        showLevelBar={false}
+        onSubmitScore={() => {}}
+        onFinish={handleBlixtPlayFinish}
+      />
+    );
+  }
+
+  if (screen === "blixt-choose" && blixtDraftResult && user) {
+    return (
+      <BlixtChooseOpponentScreen
+        user={user}
+        draftResult={blixtDraftResult}
+        onChallengeFriend={handleChallengeFriend}
+        onChallengeRandom={handleChallengeRandom}
+        onSkip={handleSkipBlixtChallenge}
+      />
+    );
+  }
+
+  if (screen === "blixt-hub" && user) {
+    return (
+      <BlixtScreen
+        user={user}
+        challenges={myBlixtChallenges}
+        onRespond={handleRespondToChallenge}
+        onPlay={handlePlayAcceptedChallenge}
+        onPlayNew={handlePlayBlixt}
+        onBack={() => navigate("home")}
+      />
+    );
+  }
+
+  if (screen === "blixt-respond-play" && activeBlixtChallenge) {
+    return (
+      <GameScreen
+        sourceWord={activeBlixtChallenge.source_word}
+        durationSeconds={BLIXT_DURATION_SECONDS}
+        showLevelBar={false}
+        onSubmitScore={() => {}}
+        onFinish={handleBlixtResponseFinish}
+      />
+    );
+  }
+
+  if (screen === "blixt-result" && blixtResult) {
+    return (
+      <BlixtResultScreen
+        myScore={blixtResult.myScore}
+        myWords={blixtResult.myWords}
+        opponentScore={blixtResult.opponentScore}
+        opponentName={blixtResult.opponentName}
+        onHome={() => navigate("home")}
+        onBlixt={goToBlixt}
+      />
+    );
   }
 
   if (screen === "result" && lastResult) {
@@ -270,10 +451,12 @@ export default function App() {
         displayName={displayName}
         streak={streak}
         bestLevel={bestLevel}
+        pendingBlixtCount={pendingBlixtCount}
         onPlay={handlePlayToday}
         onArchive={openArchive}
         onLeaderboard={() => goToLeaderboard(todayStr())}
         onFriends={() => navigate("friends")}
+        onGoToBlixt={goToBlixt}
         onLogin={() => navigate("auth")}
         onSignOut={handleSignOut}
       />

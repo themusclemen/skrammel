@@ -52,6 +52,18 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   tabell i Supabase. "Utmana" delar en inbjudan via samma delnings-UI som
   resultatdelning; ingen ny spellogik. Byggd 2026-07-19.
 
+- **Blixtpussel v2:** async 1-mot-1-utmaningsspel mellan spelare,
+  separat från dagens delade ord — eget 6-bokstavsord, 2 minuter.
+  Spela-först-flöde (spela en oriktad runda, välj sen vem du utmanar
+  med resultatet), kan utmana vänner eller en slumpad motståndare
+  (vilken registrerad spelare som helst), anta/ignorera som egna
+  handlingar, max 20 matcher på gång samtidigt, vinst/förlust-stats
+  per motståndare. Full plan i `~/.claude/plans/floating-sniffing-thimble.md`
+  — se `architecture.md` under "Blixtpussel v2" för byggstatus. Byggd
+  2026-07-19, `npm run build` grönt, databasmigrationen körd mot
+  `skrammel-beta` 2026-07-20. Kvar: manuellt klick-test och commit —
+  inte live-användbart förrän dess.
+
 ## Öppna frågor (ej beslutade än)
 
 - Hur källordet för varje dag väljs/kureras (manuellt likt minikors

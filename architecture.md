@@ -410,6 +410,59 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
 
 ---
 
+## Blixtpussel v2 — byggt (2026-07-19)
+
+Ett 1-mot-1-utmaningsspel mellan spelare, separat från dagens delade
+ord: eget slumpat **6-bokstavsord**, **2 minuters** tidsgräns (kortare
+än dagens 7–10 bokstäver / 5 minuter). Scopet växte under planeringen
+långt bortom den första idén (dela en länk direkt efter att ha spelat)
+— se den fullständiga planen i `~/.claude/plans/floating-sniffing-thimble.md`
+(ersätter den äldre, aldrig byggda `noble-finding-waffle.md`).
+
+**Bekräftade designbeslut:**
+- **Spela-först-flöde:** man spelar en oriktad Blixt-runda, ser sin
+  poäng, och väljer *sen* vem man vill utmana — högst en mottagare per
+  spelad runda. Inte "välj motståndare, spela sen" som första utkastet.
+- **Slumpmotståndare:** man kan utmana vilken registrerad spelare som
+  helst (någon som någon gång lagt in ett resultat i `scores`), inte
+  bara vänner.
+- **Anta/ignorera:** en egen, synlig handling för mottagaren — till
+  skillnad från vänskaps-inbjudan där själva länk-öppningen räknas som
+  bekräftelse. Ignorera avvisar permanent och frigör en plats i taket
+  för båda parter.
+- **20 matcher på gång samtidigt**, räknat över alla ej avslutade
+  (pending/accepted) utmaningar, skickade och mottagna, båda parter.
+- **Vinst/förlust-statistik** slår ihop vänner och slumpmotståndare i
+  samma per-motståndare-lista.
+
+**Teknisk knäckfråga löst i planen:** 20-taket måste kunna räkna
+*motpartens* öppna matcher också (annars går det att spamma en
+populär slumpmotståndare långt förbi taket) — men vanliga RLS
+`with check`-subfrågor mot samma tabell ärver tabellens egen
+SELECT-policy, så en infogande användare kan inte se motpartens alla
+rader. Lösning: en `security definer`-SQL-funktion
+(`blixt_open_challenge_count`) som kringgår RLS vid räkningen, anropad
+från insert-policyn.
+
+**Status:** implementerat enligt planen (2026-07-19). `supabase/schema.sql`
+och `supabase/migrations/20260719175714_add_blixt.sql` skriver nu det
+slutgiltiga schemat (`status`-kolumn, `opponent_id`, `blixt_open_challenge_count`)
+— **men är fortfarande inte applicerade mot den skarpa `skrammel-beta`-databasen.**
+Nya/ändrade filer: `src/game/blixtConstants.js`, `src/api/blixt.js`,
+`src/game/adminSuggest.js` (parameteriserad, default oförändrad för
+`AdminWordsScreen`), `GameScreen.jsx` (nya props `durationSeconds`/`showLevelBar`),
+`BlixtScreen.jsx`/`BlixtChooseOpponentScreen.jsx`/`BlixtResultScreen.jsx` (nya),
+`HomeScreen.jsx` (blinkande notis + Blixt-knapp), `FriendsScreen.jsx` (den
+gamla platshållar-"Utmana"-knappen borttagen), `App.jsx` (ny state + handlers
++ skärmgrenar `blixt-play`/`blixt-choose`/`blixt-hub`/`blixt-respond-play`/`blixt-result`).
+`npm run build` verifierat grönt. Migrationen (`supabase db push --linked --yes`)
+kördes mot skrammel-beta 2026-07-20 — `blixt_challenges`/`blixt_scores`
+finns nu på skarp databas. **Kvarstår innan det funkar live:** manuellt
+klick-test i webbläsare (se planens "Verifiering"-lista) och commit av
+koden — ingen av delarna gjord än.
+
+---
+
 ## Native app-plan (App Store / Google Play) — beslutad 2026-07-19
 
 Användaren har bestämt att Skrammel ska bli en native app i

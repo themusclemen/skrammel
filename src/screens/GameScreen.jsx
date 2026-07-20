@@ -56,7 +56,7 @@ function guessTileMetrics(letterCount) {
   return { size, font, gap };
 }
 
-export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
+export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true }) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
   const sourceCounts = useMemo(() => letterCounts(sourceWord), [sourceWord]);
   // Ord på 8+ bokstäver delas på två rader så brickorna blir större och
@@ -70,7 +70,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
       sourceLetters.map((_, i) => i).slice(firstLen),
     ];
   }, [sourceLetters]);
-  const [timeLeft, setTimeLeft] = useState(GAME_DURATION_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(durationSeconds);
   // Ordnad lista av index i sourceWord som är intryckta för det ord som byggs just nu.
   const [tappedIndices, setTappedIndices] = useState([]);
   const [found, setFound] = useState([]); // [{ word, score }]
@@ -228,7 +228,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
       highlightTimeoutRef.current = setTimeout(() => setHighlightLength(null), 1000);
 
       const newScore = currentScore + result.score;
-      const elapsed = GAME_DURATION_SECONDS - timeLeft;
+      const elapsed = durationSeconds - timeLeft;
       setLevelTimes((prev) => {
         const next = { ...prev };
         for (const lvl of levelTargets) {
@@ -356,9 +356,11 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish }) {
       </div>
 
       <div style={styles.bottomArea}>
-        <div style={styles.challengeSection}>
-          <ChallengeBar currentScore={currentScore} levels={levelTargets} totalPossibleScore={totalPossibleScore} />
-        </div>
+        {showLevelBar && (
+          <div style={styles.challengeSection}>
+            <ChallengeBar currentScore={currentScore} levels={levelTargets} totalPossibleScore={totalPossibleScore} />
+          </div>
+        )}
 
         <div style={styles.histogramSection}>
           <div style={styles.histogramLabel}>Ord kvar</div>
