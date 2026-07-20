@@ -16,8 +16,11 @@ export default function GameIntroModal({ title, message, onStart }) {
 }
 
 const styles = {
+  // Helt ogenomskinlig (till skillnad från de andra modalernas
+  // halvtransparenta backdrop) — källordets bokstäver ska inte gå att ana
+  // innan spelaren aktivt startat rundan, särskilt viktigt i Blixt.
   backdrop: {
-    position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.75)",
+    position: "fixed", inset: 0, background: T.bg,
     display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: "1.5rem",
   },
   card: {
