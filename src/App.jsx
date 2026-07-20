@@ -335,6 +335,7 @@ export default function App() {
         sourceWord={blixtSourceWord}
         durationSeconds={BLIXT_DURATION_SECONDS}
         showLevelBar={false}
+        allowFreePlay={false}
         onSubmitScore={() => {}}
         onFinish={handleBlixtPlayFinish}
       />
@@ -375,6 +376,7 @@ export default function App() {
         sourceWord={activeBlixtChallenge.source_word}
         durationSeconds={BLIXT_DURATION_SECONDS}
         showLevelBar={false}
+        allowFreePlay={false}
         targetScore={opponentTargetScore}
         opponentName={activeBlixtChallenge.creator_display_name}
         onSubmitScore={() => {}}

@@ -66,7 +66,7 @@ function guessTileMetrics(letterCount) {
 
 export default function GameScreen({
   sourceWord, onSubmitScore, onFinish, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true,
-  targetScore = null, opponentName = null,
+  targetScore = null, opponentName = null, allowFreePlay = true,
 }) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
   const sourceCounts = useMemo(() => letterCounts(sourceWord), [sourceWord]);
@@ -189,13 +189,16 @@ export default function GameScreen({
     if (showIntro) return; // Klockan startar inte förrän spelaren stängt introt.
     if (freePlay) return; // Tiden räknas inte längre i fri spelning.
     if (timeLeft <= 0) {
-      setTimeIsUp(true);
       submitCurrentScore();
+      // Blixt tillåter ingen fri spelning efter tiden — rundan är över och
+      // spelaren går direkt till facit/resultat, inget val att göra.
+      if (allowFreePlay) setTimeIsUp(true);
+      else setShowWordReveal(true);
       return;
     }
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(id);
-  }, [timeLeft, freePlay, showIntro, submitCurrentScore]);
+  }, [timeLeft, freePlay, showIntro, allowFreePlay, submitCurrentScore]);
 
   const handleQuitAtTimeUp = () => {
     setTimeIsUp(false);
