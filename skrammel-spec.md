@@ -61,8 +61,10 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   per motståndare. Full plan i `~/.claude/plans/floating-sniffing-thimble.md`
   — se `architecture.md` under "Blixtpussel v2" för byggstatus. Byggd
   2026-07-19, `npm run build` grönt, databasmigrationen körd mot
-  `skrammel-beta` 2026-07-20. Kvar: manuellt klick-test och commit —
-  inte live-användbart förrän dess.
+  `skrammel-beta` 2026-07-20, committat och pushat. Källorden dras nu ur
+  en admin-kuraterad pool (`/admin/blixt`, ny `blixt_words`-tabell) istället
+  för att slumpas rent klient-sidan — se `architecture.md` under
+  "Ordkuration" för status; migrationen för den delen är ännu inte körd.
 
 ## Öppna frågor (ej beslutade än)
 

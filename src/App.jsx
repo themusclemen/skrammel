@@ -20,6 +20,7 @@ import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import ArchiveScreen from "./screens/ArchiveScreen.jsx";
 import AuthScreen from "./screens/AuthScreen.jsx";
 import AdminWordsScreen from "./screens/AdminWordsScreen.jsx";
+import BlixtWordsAdminScreen from "./screens/BlixtWordsAdminScreen.jsx";
 import FriendsScreen from "./screens/FriendsScreen.jsx";
 import BlixtScreen from "./screens/BlixtScreen.jsx";
 import BlixtChooseOpponentScreen from "./screens/BlixtChooseOpponentScreen.jsx";
@@ -39,6 +40,7 @@ function todayStr() {
 
 export default function App() {
   const isAdminRoute = window.location.pathname === "/admin";
+  const isBlixtAdminRoute = window.location.pathname === "/admin/blixt";
   const [user, setUser] = useState(undefined); // undefined = laddar, null = utloggad/gäst
   const displayName = user?.user_metadata?.display_name ?? null; // satt vid signup, se AuthScreen
   const [screen, setScreen] = useState("home");
@@ -204,8 +206,9 @@ export default function App() {
     clearInviteUrl();
   }, [clearInviteUrl]);
 
-  const handlePlayBlixt = useCallback(() => {
-    setBlixtSourceWord(pickBlixtWord(getDictionary()));
+  const handlePlayBlixt = useCallback(async () => {
+    const word = await pickBlixtWord(getDictionary());
+    setBlixtSourceWord(word);
     setScreen("blixt-play");
   }, []);
 
@@ -303,7 +306,7 @@ export default function App() {
     );
   }
 
-  if (isAdminRoute) {
+  if (isAdminRoute || isBlixtAdminRoute) {
     if (!user) return <AuthScreen onDone={() => {}} />;
     if (user.email !== ADMIN_EMAIL) {
       return (
@@ -315,7 +318,7 @@ export default function App() {
         </div>
       );
     }
-    return <AdminWordsScreen />;
+    return isBlixtAdminRoute ? <BlixtWordsAdminScreen /> : <AdminWordsScreen />;
   }
 
   if (screen === "auth") {

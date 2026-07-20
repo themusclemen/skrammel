@@ -457,9 +457,30 @@ gamla platshållar-"Utmana"-knappen borttagen), `App.jsx` (ny state + handlers
 + skärmgrenar `blixt-play`/`blixt-choose`/`blixt-hub`/`blixt-respond-play`/`blixt-result`).
 `npm run build` verifierat grönt. Migrationen (`supabase db push --linked --yes`)
 kördes mot skrammel-beta 2026-07-20 — `blixt_challenges`/`blixt_scores`
-finns nu på skarp databas. **Kvarstår innan det funkar live:** manuellt
-klick-test i webbläsare (se planens "Verifiering"-lista) och commit av
-koden — ingen av delarna gjord än.
+finns nu på skarp databas. Committat och pushat (`19f8c2f`, plus uppföljande
+UI-justeringar `9023121`/`efa206d`: en direkt "Spela blixt-Skrammel!"-knapp
+på hemskärmen, gamla separata "Blixt"-navknappen borttagen). Användaren
+testar själv live — inget formellt klick-test-protokoll rapporterat tillbaka.
+
+**Ordkuration (2026-07-20):** källorden för Blixt upplevdes som "konstiga"
+när de slumpas rent klient-sidan vid spelstart (samma `suggestSourceWord`
+som `AdminWordsScreen` använder, men utan mänsklig granskning). Löst med
+en kuraterad ordpool: ny tabell `blixt_words` (`word`, `findable_count`,
+`approved`, RLS: publikt läsbar bara där `approved = true`, skriv begränsat
+till adminmailen — se `supabase/migrations/20260720081641_add_blixt_words.sql`).
+Ny admin-sida `/admin/blixt` (`src/screens/BlixtWordsAdminScreen.jsx`,
+samma mönster som `/admin`s `AdminWordsScreen`): en knapp genererar 500
+kandidatord (dedupear mot redan lagrade + mot varandra, kräver hittabart
+antal inom `BLIXT_MIN_FINDABLE`–`BLIXT_MAX_FINDABLE`), en tabell med
+Godkänn-kryssruta + Kasta-knapp per rad, filter Väntar/Godkända/Alla.
+`src/api/blixtWords.js` är CRUD-lagret. `pickBlixtWord()` i `src/api/blixt.js`
+är nu `async` — drar slumpmässigt (med upprepning tillåten) ur de godkända
+orden via `fetchApprovedBlixtWords()`, och faller bara tillbaka på den gamla
+rent klient-genererade vägen om poolen är tom (t.ex. innan admin hunnit
+godkänna något) eller Supabase inte är konfigurerat. `handlePlayBlixt` i
+`App.jsx` väntar nu in anropet. `npm run build` grönt. **Kvarstår:**
+migrationen inte körd mot skrammel-beta än, inga kandidater genererade/
+godkända än, och inte committat.
 
 ---
 

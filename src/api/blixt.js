@@ -1,14 +1,22 @@
 import { supabase, isSupabaseConfigured } from "../supabase.js";
 import { buildCandidatePool, suggestSourceWord } from "../game/adminSuggest.js";
+import { fetchApprovedBlixtWords } from "./blixtWords.js";
 import {
   BLIXT_WORD_LENGTH,
   BLIXT_MIN_FINDABLE,
   BLIXT_MAX_FINDABLE,
 } from "../game/blixtConstants.js";
 
-// Ren klient-beräkning, ingen databas inblandad — den oriktade rundan har
-// ännu ingen mottagare.
-export function pickBlixtWord(dictionary) {
+// Slumpar bland admin-godkända ord (se /admin/blixt, src/api/blixtWords.js)
+// i första hand. Faller tillbaka på den gamla rent klient-genererade vägen
+// om poolen är tom (t.ex. innan admin hunnit godkänna något) eller om
+// Supabase inte är konfigurerat — Blixt ska funka även innan kurationen finns.
+export async function pickBlixtWord(dictionary) {
+  const approved = await fetchApprovedBlixtWords();
+  if (approved.length > 0) {
+    return approved[Math.floor(Math.random() * approved.length)];
+  }
+
   const pool = buildCandidatePool(dictionary, {
     minLength: BLIXT_WORD_LENGTH,
     maxLength: BLIXT_WORD_LENGTH,
