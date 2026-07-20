@@ -44,7 +44,7 @@ export default function ResultScreen({ score, words, todayLevel, date, user, str
       )}
 
       <div style={styles.navRow}>
-        <button onClick={onLeaderboard} style={styles.navButton}>Topplista</button>
+        <button onClick={onLeaderboard} style={styles.navButton}>Topplista för Dagens Skrammel</button>
         <button onClick={onPlayHome} style={styles.navButton}>Till start</button>
       </div>
     </div>

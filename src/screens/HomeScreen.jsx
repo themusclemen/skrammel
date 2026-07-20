@@ -46,8 +46,8 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, pendi
       )}
       <div style={styles.secondaryRow}>
         <button onClick={onArchive} style={styles.secondaryButton}>Tidigare Dagens Skrammel</button>
-        <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista</button>
-        {user && <button onClick={onGoToBlixt} style={styles.secondaryButton}>Blixt</button>}
+        <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista för Dagens Skrammel</button>
+        {user && <button onClick={onGoToBlixt} style={styles.secondaryButton}>Blixt-sida</button>}
         {user && <button onClick={onFriends} style={styles.secondaryButton}>Vänner</button>}
       </div>
 

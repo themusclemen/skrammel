@@ -44,7 +44,7 @@ export default function LeaderboardScreen({ date, onDateChange, onHome, onArchiv
 
   return (
     <div style={styles.page}>
-      <h2 style={{ margin: 0, color: T.accent }}>Topplista</h2>
+      <h2 style={{ margin: 0, color: T.accent }}>Topplista för Dagens Skrammel</h2>
 
       {user && (
         <div style={styles.scopeRow}>
