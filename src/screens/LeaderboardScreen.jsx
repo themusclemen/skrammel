@@ -95,7 +95,7 @@ export default function LeaderboardScreen({ date, onDateChange, onHome, onArchiv
       )}
 
       <div style={styles.navRow}>
-        <button onClick={onArchive} style={styles.navButton}>Tidigare utmaningar</button>
+        <button onClick={onArchive} style={styles.navButton}>Tidigare Dagens Skrammel</button>
         <button onClick={onHome} style={styles.navButton}>Till start</button>
       </div>
     </div>

@@ -54,7 +54,7 @@ export default function ArchiveScreen({ playableDates, playedDates, onSelectDate
   return (
     <div style={styles.page}>
       <a href="#" onClick={(e) => { e.preventDefault(); onBack(); }} style={styles.backLink}>← Till start</a>
-      <h1 style={styles.title}>Tidigare utmaningar</h1>
+      <h1 style={styles.title}>Tidigare Dagens Skrammel</h1>
 
       <div style={styles.monthNav}>
         <button onClick={goPrevMonth} style={styles.navButton}>‹</button>
