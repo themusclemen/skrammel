@@ -1,6 +1,6 @@
 import { T } from "../theme.js";
 
-export default function HomeScreen({ user, displayName, streak, bestLevel, pendingBlixtCount = 0, onPlay, onPlayBlixt, onArchive, onLeaderboard, onFriends, onGoToBlixt, onLogin, onSignOut }) {
+export default function HomeScreen({ user, displayName, streak, bestLevel, pendingBlixtCount = 0, blixtUpdatesCount = 0, onPlay, onPlayBlixt, onArchive, onLeaderboard, onFriends, onGoToBlixt, onLogin, onSignOut }) {
   return (
     <div style={styles.page}>
       <style>{`
@@ -27,6 +27,12 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, pendi
       {user && pendingBlixtCount > 0 && (
         <button onClick={onGoToBlixt} style={styles.blixtBanner}>
           ⚡ {pendingBlixtCount} blixtutmaning{pendingBlixtCount > 1 ? "ar" : ""} väntar!
+        </button>
+      )}
+
+      {user && blixtUpdatesCount > 0 && (
+        <button onClick={onGoToBlixt} style={styles.blixtUpdateBanner}>
+          🔔 {blixtUpdatesCount} blixtmatch{blixtUpdatesCount > 1 ? "er" : ""} uppdaterad{blixtUpdatesCount > 1 ? "e" : ""}
         </button>
       )}
 
@@ -98,6 +104,12 @@ const styles = {
     padding: "0.6rem 1rem", borderRadius: 10, border: "none", cursor: "pointer",
     background: T.accent2, color: "#fff", fontWeight: 700, fontSize: "0.9rem",
     animation: "skrammelBlink 1.2s steps(1, end) infinite",
+  },
+  // Lugnare än blixtBanner (ingen blink) — det här är bara ett resultat
+  // att kika på, inget som väntar på en åtgärd från spelaren.
+  blixtUpdateBanner: {
+    padding: "0.6rem 1rem", borderRadius: 10, border: `1px solid ${T.border}`, cursor: "pointer",
+    background: T.surface, color: T.accent, fontWeight: 700, fontSize: "0.9rem",
   },
   statsRow: { display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" },
   statChip: {

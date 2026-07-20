@@ -12,6 +12,7 @@ import {
   pickBlixtWord, createChallenge, respondToChallenge, submitBlixtScore,
   fetchMyChallenges, fetchRandomOpponent, classifyChallenge,
 } from "./api/blixt.js";
+import { loadSeenStatuses, saveSeenStatuses } from "./game/blixtSeen.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
@@ -106,6 +107,31 @@ export default function App() {
       return status === "needs_response" || status === "your_turn";
     }).length;
   }, [myBlixtChallenges, user]);
+
+  // Räknar matcher som bytt status (t.ex. antagen eller klar) sen jag
+  // senast öppnade Blixt-huben — se game/blixtSeen.js. Bumpas för att
+  // tvinga fram omräkning när huben markerar en ny bunt som sedd, eftersom
+  // det bara skriver till localStorage och inte rör myBlixtChallenges.
+  const [blixtSeenVersion, setBlixtSeenVersion] = useState(0);
+  const blixtUpdatesCount = useMemo(() => {
+    if (!user) return 0;
+    const seen = loadSeenStatuses(user.id);
+    return myBlixtChallenges.filter((c) => {
+      const status = classifyChallenge(c, user.id);
+      // Redan täckt av pendingBlixtCount — ska inte dubbelräknas här.
+      if (status === "needs_response" || status === "your_turn") return false;
+      return seen[c.id] !== c.status;
+    }).length;
+  }, [myBlixtChallenges, user, blixtSeenVersion]);
+
+  // Markerar allt som sett så fort spelaren faktiskt tittar i Blixt-huben —
+  // det är den enda "jag har läst det här"-signalen vi har utan
+  // server-side läststatus.
+  useEffect(() => {
+    if (screen !== "blixt-hub" || !user) return;
+    saveSeenStatuses(user.id, myBlixtChallenges);
+    setBlixtSeenVersion((v) => v + 1);
+  }, [screen, user, myBlixtChallenges]);
 
   const clearInviteUrl = useCallback(() => {
     if (window.location.pathname.startsWith("/friend/")) window.history.replaceState({}, "", "/");
@@ -462,6 +488,7 @@ export default function App() {
         streak={streak}
         bestLevel={bestLevel}
         pendingBlixtCount={pendingBlixtCount}
+        blixtUpdatesCount={blixtUpdatesCount}
         onPlay={handlePlayToday}
         onPlayBlixt={handlePlayBlixt}
         onArchive={openArchive}
