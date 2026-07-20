@@ -478,9 +478,23 @@ Godkänn-kryssruta + Kasta-knapp per rad, filter Väntar/Godkända/Alla.
 orden via `fetchApprovedBlixtWords()`, och faller bara tillbaka på den gamla
 rent klient-genererade vägen om poolen är tom (t.ex. innan admin hunnit
 godkänna något) eller Supabase inte är konfigurerat. `handlePlayBlixt` i
-`App.jsx` väntar nu in anropet. `npm run build` grönt. **Kvarstår:**
-migrationen inte körd mot skrammel-beta än, inga kandidater genererade/
-godkända än, och inte committat.
+`App.jsx` väntar nu in anropet. `npm run build` grönt. Migrationen körd
+mot skrammel-beta, committat och pushat (`b4e544e`).
+
+**Ordlängd ändrad till 8 (2026-07-20).** Användaren hade redan genererat
+500 kandidater och godkänt 15 stycken på `/admin/blixt` innan de bad om
+bytet från 6 till 8 bokstäver ("6 är för lite"). `BLIXT_WORD_LENGTH` = 8.
+Testade fördelningen av hittabara ord för 8-bokstavsord i `ordlista.txt`
+(300-sampel): median ~75, bara 44% föll inom det gamla 12–70-spannet —
+höjde därför `BLIXT_MIN_FINDABLE`/`BLIXT_MAX_FINDABLE` till **30–120**
+(användaren valde det rekommenderade alternativet). De gamla 497
+6-bokstavsraderna i `blixt_words` (15 godkända, 482 väntande) städades
+bort direkt mot skarp databas via Supabase Management API:s
+`database/query`-endpoint (`POST /v1/projects/{ref}/database/query`,
+samma access-token-flöde) eftersom `pickBlixtWord()` inte filtrerar på
+ordlängd — annars hade gamla 6-bokstavsord kunnat dyka upp blandat med
+nya 8-bokstavsrundor. Tabellen är nu tom; nästa "Generera 500 kandidater"
+på `/admin/blixt` ger enbart 8-bokstavsord.
 
 ---
 

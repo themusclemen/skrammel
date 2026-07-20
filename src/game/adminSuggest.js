@@ -15,7 +15,7 @@ export function buildCandidatePool(dictionary, { minLength = MIN_LENGTH, maxLeng
 
 // Slumpar fram ett källordsförslag och kollar hur många ord det ger via
 // findWordsInSource. Försöker hitta ett förslag inom [minFindable,
-// maxFindable] (default 50–250, Blixtpussel skickar 12–70), men ger annars
+// maxFindable] (default 50–250, Blixtpussel skickar 30–120), men ger annars
 // tillbaka det bästa den hann hitta.
 export function suggestSourceWord(candidatePool, dictionary, { minFindable = MIN_FINDABLE, maxFindable = MAX_FINDABLE } = {}) {
   const target = (minFindable + maxFindable) / 2;

@@ -53,18 +53,18 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   resultatdelning; ingen ny spellogik. Byggd 2026-07-19.
 
 - **Blixtpussel v2:** async 1-mot-1-utmaningsspel mellan spelare,
-  separat från dagens delade ord — eget 6-bokstavsord, 2 minuter.
+  separat från dagens delade ord — eget 8-bokstavsord, 2 minuter.
   Spela-först-flöde (spela en oriktad runda, välj sen vem du utmanar
   med resultatet), kan utmana vänner eller en slumpad motståndare
   (vilken registrerad spelare som helst), anta/ignorera som egna
   handlingar, max 20 matcher på gång samtidigt, vinst/förlust-stats
   per motståndare. Full plan i `~/.claude/plans/floating-sniffing-thimble.md`
   — se `architecture.md` under "Blixtpussel v2" för byggstatus. Byggd
-  2026-07-19, `npm run build` grönt, databasmigrationen körd mot
-  `skrammel-beta` 2026-07-20, committat och pushat. Källorden dras nu ur
-  en admin-kuraterad pool (`/admin/blixt`, ny `blixt_words`-tabell) istället
+  2026-07-19, `npm run build` grönt, databasmigrationerna körda mot
+  `skrammel-beta`, committat och pushat. Källorden dras ur en
+  admin-kuraterad pool (`/admin/blixt`, `blixt_words`-tabell) istället
   för att slumpas rent klient-sidan — se `architecture.md` under
-  "Ordkuration" för status; migrationen för den delen är ännu inte körd.
+  "Ordkuration"/"Ordlängd ändrad till 8" för status.
 
 ## Öppna frågor (ej beslutade än)
 
