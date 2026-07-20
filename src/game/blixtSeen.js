@@ -13,7 +13,11 @@ export function loadSeenStatuses(userId) {
 }
 
 export function saveSeenStatuses(userId, challenges) {
-  const map = {};
+  // Slår ihop med tidigare sparad data istället för att skriva över den —
+  // annars raderas "sedd"-status för matcher som råkar saknas i den här
+  // batchen (t.ex. en ofullständig hämtning), vilket gjorde att notisen kom
+  // tillbaka vid nästa inloggning trots att inget nytt hänt.
+  const map = loadSeenStatuses(userId);
   for (const c of challenges) map[c.id] = c.status;
   try {
     localStorage.setItem(STORAGE_KEY_PREFIX + userId, JSON.stringify(map));

@@ -41,7 +41,7 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, pendi
       </div>
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlayBlixt} style={styles.playButton}>Spela blixt-Skrammel!</button>
+          <button onClick={onPlayBlixt} style={styles.playButton}>Spela blixt-skrammel mot en vän</button>
         </div>
       )}
       <div style={styles.secondaryRow}>

@@ -316,8 +316,8 @@ export default function App() {
     setScreen("blixt-result");
   }, [user, displayName, activeBlixtChallenge, refreshBlixtChallenges]);
 
-  const goToBlixt = useCallback(() => {
-    refreshBlixtChallenges();
+  const goToBlixt = useCallback(async () => {
+    await refreshBlixtChallenges();
     setScreen("blixt-hub");
   }, [refreshBlixtChallenges]);
 
