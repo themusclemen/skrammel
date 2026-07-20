@@ -3,13 +3,14 @@ import { T } from "../theme.js";
 // Visas innan klockan börjar ticka — förklarar reglerna för den aktuella
 // rundan (dagens ord, ny blixt, eller svara på en blixtutmaning) så
 // spelaren vet vad som gäller innan tiden startar.
-export default function GameIntroModal({ title, message, onStart }) {
+export default function GameIntroModal({ title, message, onStart, onBack }) {
   return (
     <div style={styles.backdrop}>
       <div style={styles.card}>
         <div style={styles.title}>{title}</div>
         <div style={styles.message}>{message}</div>
         <button onClick={onStart} style={styles.startButton}>Nu kör vi!</button>
+        <button onClick={onBack} style={styles.backButton}>Tillbaka</button>
       </div>
     </div>
   );
@@ -34,5 +35,9 @@ const styles = {
     width: "100%", padding: "0.9rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
     marginTop: "0.3rem",
+  },
+  backButton: {
+    width: "100%", padding: "0.8rem", borderRadius: 10, border: `1px solid ${T.border}`,
+    background: "transparent", color: T.muted, fontWeight: 600, fontSize: "0.95rem", cursor: "pointer",
   },
 };

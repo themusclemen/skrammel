@@ -65,7 +65,7 @@ function guessTileMetrics(letterCount) {
 }
 
 export default function GameScreen({
-  sourceWord, onSubmitScore, onFinish, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true,
+  sourceWord, onSubmitScore, onFinish, onBack, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true,
   targetScore = null, opponentName = null, allowFreePlay = true,
 }) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
@@ -515,7 +515,7 @@ export default function GameScreen({
       )}
 
       {showIntro && (
-        <GameIntroModal title={introTitle} message={introMessage} onStart={() => setShowIntro(false)} />
+        <GameIntroModal title={introTitle} message={introMessage} onStart={() => setShowIntro(false)} onBack={onBack} />
       )}
     </div>
   );

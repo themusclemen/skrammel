@@ -352,7 +352,14 @@ export default function App() {
   }
 
   if (screen === "game" && sourceWord) {
-    return <GameScreen sourceWord={sourceWord} onSubmitScore={handleSubmitScore} onFinish={handleGameFinish} />;
+    return (
+      <GameScreen
+        sourceWord={sourceWord}
+        onSubmitScore={handleSubmitScore}
+        onFinish={handleGameFinish}
+        onBack={() => navigate("home")}
+      />
+    );
   }
 
   if (screen === "blixt-play" && blixtSourceWord) {
@@ -364,6 +371,7 @@ export default function App() {
         allowFreePlay={false}
         onSubmitScore={() => {}}
         onFinish={handleBlixtPlayFinish}
+        onBack={() => navigate("home")}
       />
     );
   }
@@ -407,6 +415,7 @@ export default function App() {
         opponentName={activeBlixtChallenge.creator_display_name}
         onSubmitScore={() => {}}
         onFinish={handleBlixtResponseFinish}
+        onBack={() => navigate("blixt-hub")}
       />
     );
   }
