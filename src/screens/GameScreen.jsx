@@ -14,6 +14,8 @@ import WordLengthModal from "../components/WordLengthModal.jsx";
 import GameMenuModal from "../components/GameMenuModal.jsx";
 import TimeUpModal from "../components/TimeUpModal.jsx";
 import WordRevealModal from "../components/WordRevealModal.jsx";
+import GameIntroModal from "../components/GameIntroModal.jsx";
+import BeatScoreBar from "../components/BeatScoreBar.jsx";
 
 function groupByLength(words) {
   const counts = {};
@@ -25,6 +27,12 @@ function groupWordsByLength(words) {
   const groups = {};
   for (const word of words) (groups[word.length] ??= []).push(word);
   return groups;
+}
+
+const MINUTE_WORDS = { 1: "en", 2: "två", 3: "tre", 4: "fyra", 5: "fem", 6: "sex", 7: "sju", 8: "åtta", 9: "nio", 10: "tio" };
+function minutesWord(seconds) {
+  const m = Math.round(seconds / 60);
+  return MINUTE_WORDS[m] ?? String(m);
 }
 
 const FEEDBACK_MESSAGES = {
@@ -56,7 +64,10 @@ function guessTileMetrics(letterCount) {
   return { size, font, gap };
 }
 
-export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true }) {
+export default function GameScreen({
+  sourceWord, onSubmitScore, onFinish, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true,
+  targetScore = null, opponentName = null,
+}) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
   const sourceCounts = useMemo(() => letterCounts(sourceWord), [sourceWord]);
   // Ord på 8+ bokstäver delas på två rader så brickorna blir större och
@@ -70,6 +81,9 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
       sourceLetters.map((_, i) => i).slice(firstLen),
     ];
   }, [sourceLetters]);
+  // Sant tills spelaren stänger den pedagogiska introt — klockan börjar
+  // inte ticka och tangentbordsinput ignoreras medan den visas.
+  const [showIntro, setShowIntro] = useState(true);
   const [timeLeft, setTimeLeft] = useState(durationSeconds);
   // Ordnad lista av index i sourceWord som är intryckta för det ord som byggs just nu.
   const [tappedIndices, setTappedIndices] = useState([]);
@@ -144,10 +158,10 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
   }, [tappedIndices.length]);
 
   useEffect(() => {
-    if (hasTypedOnce) return;
+    if (hasTypedOnce || showIntro) return;
     const id = setTimeout(() => setIdleTickerPast30s(true), 30000);
     return () => clearTimeout(id);
-  }, [hasTypedOnce]);
+  }, [hasTypedOnce, showIntro]);
 
   const handleIdleTickerLoop = () => {
     if (idleTickerPast30s) setIdleTickerShowSecondary((v) => !v);
@@ -172,6 +186,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
   }, [found, onFinish, submitCurrentScore, sourceWord]);
 
   useEffect(() => {
+    if (showIntro) return; // Klockan startar inte förrän spelaren stängt introt.
     if (freePlay) return; // Tiden räknas inte längre i fri spelning.
     if (timeLeft <= 0) {
       setTimeIsUp(true);
@@ -180,7 +195,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
     }
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(id);
-  }, [timeLeft, freePlay, submitCurrentScore]);
+  }, [timeLeft, freePlay, showIntro, submitCurrentScore]);
 
   const handleQuitAtTimeUp = () => {
     setTimeIsUp(false);
@@ -242,7 +257,7 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
   };
 
   useEffect(() => {
-    if (showMenu || showWordReveal || timeIsUp || modalLength !== null) return;
+    if (showMenu || showWordReveal || timeIsUp || modalLength !== null || showIntro) return;
     const handleKeyDown = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Enter") {
@@ -260,6 +275,19 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   });
+
+  // Introtexten beror på vilket läge rundan spelas i: dagens ord (klocka,
+  // ingen fast motståndare), en ny blixt (ingen poäng att slå än — den
+  // skickas som utmaning efteråt), eller svar på en blixtutmaning (fast
+  // mål: motståndarens redan spelade resultat).
+  const introMode = targetScore != null ? "blixt-respond" : !showLevelBar ? "blixt-new" : "daily";
+  const introTitle = introMode === "daily" ? "Dagens Skrammel" : "⚡ Blixt";
+  const introMessage =
+    introMode === "blixt-respond"
+      ? `Du har ${minutesWord(durationSeconds)} minuter på dig att slå ${opponentName}s resultat: ${targetScore} poäng!`
+      : introMode === "blixt-new"
+      ? `Du har ${minutesWord(durationSeconds)} minuter på dig att hitta så många ord som möjligt. Din poäng skickas som en utmaning till en vän!`
+      : `Du har ${minutesWord(durationSeconds)} minuter på dig att hitta så många ord som möjligt av bokstäverna i "${sourceWord}". Ju längre ord, desto fler poäng!`;
 
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const secondsPart = timeLeft % 60;
@@ -356,11 +384,15 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
       </div>
 
       <div style={styles.bottomArea}>
-        {showLevelBar && (
+        {showLevelBar ? (
           <div style={styles.challengeSection}>
             <ChallengeBar currentScore={currentScore} levels={levelTargets} totalPossibleScore={totalPossibleScore} />
           </div>
-        )}
+        ) : targetScore != null ? (
+          <div style={styles.challengeSection}>
+            <BeatScoreBar currentScore={currentScore} targetScore={targetScore} opponentName={opponentName} />
+          </div>
+        ) : null}
 
         <div style={styles.histogramSection}>
           <div style={styles.histogramLabel}>Ord kvar</div>
@@ -477,6 +509,10 @@ export default function GameScreen({ sourceWord, onSubmitScore, onFinish, durati
           onContinue={handleContinueFreePlay}
           onQuit={handleQuitAtTimeUp}
         />
+      )}
+
+      {showIntro && (
+        <GameIntroModal title={introTitle} message={introMessage} onStart={() => setShowIntro(false)} />
       )}
     </div>
   );

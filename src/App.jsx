@@ -367,11 +367,16 @@ export default function App() {
   }
 
   if (screen === "blixt-respond-play" && activeBlixtChallenge) {
+    const opponentTargetScore = activeBlixtChallenge.blixt_scores?.find(
+      (s) => s.user_id === activeBlixtChallenge.creator_id
+    )?.score ?? 0;
     return (
       <GameScreen
         sourceWord={activeBlixtChallenge.source_word}
         durationSeconds={BLIXT_DURATION_SECONDS}
         showLevelBar={false}
+        targetScore={opponentTargetScore}
+        opponentName={activeBlixtChallenge.creator_display_name}
         onSubmitScore={() => {}}
         onFinish={handleBlixtResponseFinish}
       />
