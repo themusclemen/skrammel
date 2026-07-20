@@ -1,6 +1,6 @@
 import { T } from "../theme.js";
 
-export default function HomeScreen({ user, displayName, streak, bestLevel, pendingBlixtCount = 0, onPlay, onArchive, onLeaderboard, onFriends, onGoToBlixt, onLogin, onSignOut }) {
+export default function HomeScreen({ user, displayName, streak, bestLevel, pendingBlixtCount = 0, onPlay, onPlayBlixt, onArchive, onLeaderboard, onFriends, onGoToBlixt, onLogin, onSignOut }) {
   return (
     <div style={styles.page}>
       <style>{`
@@ -33,6 +33,11 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, pendi
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={styles.playButton}>Spela dagens skrammel</button>
       </div>
+      {user && (
+        <div style={styles.playButtonBorder}>
+          <button onClick={onPlayBlixt} style={styles.playButton}>Spela blixt-Skrammel!</button>
+        </div>
+      )}
       <div style={styles.secondaryRow}>
         <button onClick={onArchive} style={styles.secondaryButton}>Tidigare utmaningar</button>
         <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista</button>

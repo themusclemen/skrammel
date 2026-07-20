@@ -453,6 +453,7 @@ export default function App() {
         bestLevel={bestLevel}
         pendingBlixtCount={pendingBlixtCount}
         onPlay={handlePlayToday}
+        onPlayBlixt={handlePlayBlixt}
         onArchive={openArchive}
         onLeaderboard={() => goToLeaderboard(todayStr())}
         onFriends={() => navigate("friends")}
