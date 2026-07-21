@@ -91,6 +91,14 @@ export async function submitBlixtScore(challengeId, userId, displayName, score, 
   if (statusError) throw statusError;
 }
 
+// Bara oavslutade utmaningar går att ta bort (se delete-policyn i
+// supabase/schema.sql) — UI:t erbjuder detta enbart i "Ej spelade"-tabben.
+export async function deleteChallenge(challengeId) {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from("blixt_challenges").delete().eq("id", challengeId);
+  if (error) throw error;
+}
+
 // "needs_response": jag är opponent, pending — måste anta/ignorera.
 // "waiting_opponent_response": jag är creator, pending.
 // "your_turn": jag är opponent, accepted, ingen egen poäng än.

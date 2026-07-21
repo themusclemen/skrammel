@@ -10,7 +10,7 @@ import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
 import { parseInviteFromLocation, confirmFriendship } from "./api/friends.js";
 import {
   pickBlixtWord, createChallenge, respondToChallenge, submitBlixtScore,
-  fetchMyChallenges, fetchRandomOpponent, classifyChallenge,
+  fetchMyChallenges, fetchRandomOpponent, classifyChallenge, deleteChallenge,
 } from "./api/blixt.js";
 import { loadSeenStatuses, saveSeenStatuses } from "./game/blixtSeen.js";
 import { T } from "./theme.js";
@@ -294,6 +294,11 @@ export default function App() {
     await refreshBlixtChallenges();
   }, [refreshBlixtChallenges]);
 
+  const handleDeleteChallenge = useCallback(async (challengeId) => {
+    await deleteChallenge(challengeId);
+    await refreshBlixtChallenges();
+  }, [refreshBlixtChallenges]);
+
   const handlePlayAcceptedChallenge = useCallback((challenge) => {
     setActiveBlixtChallenge(challenge);
     setScreen("blixt-respond-play");
@@ -396,6 +401,7 @@ export default function App() {
         onRespond={handleRespondToChallenge}
         onPlay={handlePlayAcceptedChallenge}
         onPlayNew={handlePlayBlixt}
+        onDelete={handleDeleteChallenge}
         onBack={() => navigate("home")}
       />
     );

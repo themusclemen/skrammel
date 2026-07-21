@@ -160,6 +160,17 @@ create policy "Opponent can respond to or complete their challenge"
   using (auth.uid() = opponent_id)
   with check (auth.uid() = opponent_id and status in ('accepted', 'declined', 'completed'));
 
+-- Låter en deltagare ta bort en oavslutad utmaning (se "Ej spelade"-tabben,
+-- src/screens/BlixtScreen.jsx). Begränsat till status <> 'completed' som
+-- försvar på djupet — UI:t erbjuder aldrig radering av avslutade
+-- utmaningar, men policyn ska inte lita blint på klienten.
+create policy "Participants can delete their unplayed challenges"
+  on blixt_challenges for delete
+  using (
+    (auth.uid() = creator_id or auth.uid() = opponent_id)
+    and status <> 'completed'
+  );
+
 
 -- Ett resultat per deltagare och utmaning. unique (challenge_id, user_id)
 -- hindrar en deltagare från att skicka in två resultat för samma utmaning.
