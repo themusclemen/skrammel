@@ -444,10 +444,10 @@ rader. Lösning: en `security definer`-SQL-funktion
 (`blixt_open_challenge_count`) som kringgår RLS vid räkningen, anropad
 från insert-policyn.
 
-**Status:** implementerat enligt planen (2026-07-19). `supabase/schema.sql`
-och `supabase/migrations/20260719175714_add_blixt.sql` skriver nu det
-slutgiltiga schemat (`status`-kolumn, `opponent_id`, `blixt_open_challenge_count`)
-— **men är fortfarande inte applicerade mot den skarpa `skrammel-beta`-databasen.**
+**Status:** implementerat enligt planen (2026-07-19), migrationen applicerad
+mot `skrammel-beta` 2026-07-20 (se nedan). `supabase/schema.sql`
+och `supabase/migrations/20260719175714_add_blixt.sql` skriver
+slutgiltiga schemat (`status`-kolumn, `opponent_id`, `blixt_open_challenge_count`).
 Nya/ändrade filer: `src/game/blixtConstants.js`, `src/api/blixt.js`,
 `src/game/adminSuggest.js` (parameteriserad, default oförändrad för
 `AdminWordsScreen`), `GameScreen.jsx` (nya props `durationSeconds`/`showLevelBar`),
@@ -495,6 +495,58 @@ samma access-token-flöde) eftersom `pickBlixtWord()` inte filtrerar på
 ordlängd — annars hade gamla 6-bokstavsord kunnat dyka upp blandat med
 nya 8-bokstavsrundor. Tabellen är nu tom; nästa "Generera 500 kandidater"
 på `/admin/blixt` ger enbart 8-bokstavsord.
+
+**Resultatflik med orddiff + radera oavslutade utmaningar (byggd i en
+tidigare session, committat/pushat/migrerat 2026-07-21).** `BlixtScreen.jsx`
+fick en flikad vy ("Ej spelade" / "Resultat") istället för en enda lång
+lista. Resultat-fliken visar per motståndare: vunna/förlorade matcher,
+poängjämförelse som staplar, och en orddiff (`wordDiff()`) — ord ni båda
+hittade vs bara en av er, mer pedagogiskt än en rå siffra. Öppna
+(ej avslutade) utmaningar döljs efter 48h (`OPEN_CHALLENGE_VISIBLE_MS`).
+Oavslutade utmaningar kan raderas (`deleteChallenge` i `src/api/blixt.js`,
+ny delete-policy `"Participants can delete their unplayed challenges"` i
+`supabase/schema.sql` — status <> 'completed' som försvar på djupet, UI:t
+erbjuder aldrig radering av avslutade matcher). Migration
+`20260720120000_add_blixt_challenge_delete.sql` applicerad mot
+`skrammel-beta`.
+
+**Tiden-är-ute-modal med vinst/förlust (2026-07-21).** Tidigare hoppade
+en Blixt-runda tyst till facit (`WordRevealModal`) när tiden tog slut —
+ingen bekräftelse på att rundan var över. Ny `BlixtTimeUpModal.jsx` visas
+först: "Tiden är ute!" plus, om motståndarens poäng redan är känd (svarar
+man på en utmaning, `targetScore` satt), vann/förlorade/oavgjort med
+poängjämförelse. Vid en ny oriktad runda (ingen motståndare än) visas bara
+att rundan är klar. `GameScreen.jsx`s tangentbordslyssnare blockeras även
+medan modalen syns.
+
+**Hopfällda rader för flera utmaningar mot samma motståndare (2026-07-21).**
+Man kan ha flera samtidiga Blixt-matcher mot samma person (ingen spärr
+mot det i `createChallenge`), vilket svämmade över "Ej spelade"-listan.
+`BlixtScreen.jsx` grupperar nu per motståndare inom varje sektion
+(`groupByOpponent`) — en match visas som en vanlig rad, flera visas som
+en hopfälld rad ("Namn (3)") som fälls ut vid klick och visar varje
+matchs egna knappar (Spela/Anta/Ignorera/Ta bort) individuellt.
+
+**Global/vän-topplista för Blixt + utmana vem som helst (2026-07-21).**
+Ny `BlixtLeaderboardScreen.jsx` (Global/Vänner-flikar, samma mönster som
+`LeaderboardScreen.jsx` för dagens ord), nåbar via en "Topplista"-knapp i
+Blixt-huben. Rankar efter flest vunna matcher totalt. Eftersom RLS på
+`blixt_challenges`/`blixt_scores` bara låter deltagare läsa sina egna
+rader, aggregeras topplistan i en ny `security definer`-SQL-funktion
+`blixt_leaderboard()` (självjoin på `blixt_scores` per `challenge_id`,
+grupperat per `user_id`, räknar vinster/förluster/matcher/högsta poäng)
+— exponerar bara summerade siffror per spelare, aldrig vem som mötte vem.
+`fetchBlixtLeaderboard()`/`fetchFriendsBlixtLeaderboard()` i
+`src/api/blixt.js` (vän-varianten filtrerar client-side på `fetchFriends`).
+Varje rad har en "Utmana"-knapp (utom din egen) — fungerar mot **vem som
+helst på listan, inte bara vänner**, eftersom `createChallenge` aldrig
+haft en vänskapskontroll. Klick startar en ny blixt-runda
+(`handleChallengeFromLeaderboard` i `App.jsx`, sätter `blixtPresetOpponent`)
+och förifyller sen motståndaren som en highlightad knapp på
+`BlixtChooseOpponentScreen` (`presetOpponent`-prop) — återanvänder samma
+`handleChallengeFriend`/felhantering som vän-flödet, ingen ny
+create-challenge-logik. Migration `20260721130000_add_blixt_leaderboard.sql`
+applicerad mot `skrammel-beta`.
 
 ---
 
