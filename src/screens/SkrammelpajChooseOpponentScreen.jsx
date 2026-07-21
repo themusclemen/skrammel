@@ -54,6 +54,18 @@ export default function SkrammelpajChooseOpponentScreen({
     }
   };
 
+  // Poolgenereringen (generateSkrammelpajPool) körs synkront i nästa skärms
+  // första render (SkrammelpajCpuScreen), och kan ta en stund (upp till 20
+  // varv över hela 70k-ordslistan). Utan setTimeout skulle "Startar…" aldrig
+  // hinna målas upp innan den tunga beräkningen blockerar huvudtråden — 0ms-
+  // fördröjningen ger bara webbläsaren en chans att rendera knapptexten
+  // först. Ingen setBusyId(null) i finally: skärmen avmonteras när
+  // onPlayCpu() navigerar bort, så det finns inget kvar att återställa.
+  const handlePlayCpu = () => {
+    setBusyId("cpu");
+    setTimeout(onPlayCpu, 0);
+  };
+
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>🥧 Starta en Skrammelpaj</h2>
@@ -71,8 +83,8 @@ export default function SkrammelpajChooseOpponentScreen({
         {busyId === "random" ? "Slumpar…" : "🎲 Slumpa motståndare"}
       </button>
 
-      <button onClick={onPlayCpu} disabled={busyId !== null} style={styles.cpuButton}>
-        🤖 Spela mot CPU (räknas inte till topplistan)
+      <button onClick={handlePlayCpu} disabled={busyId !== null} style={styles.cpuButton}>
+        {busyId === "cpu" ? "Startar…" : "🤖 Spela mot CPU (räknas inte till topplistan)"}
       </button>
 
       {friends === null && <div style={{ color: T.muted }}>Laddar vänner…</div>}
