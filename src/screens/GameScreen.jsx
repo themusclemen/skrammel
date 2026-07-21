@@ -13,6 +13,7 @@ import ChallengeBar from "../components/ChallengeBar.jsx";
 import WordLengthModal from "../components/WordLengthModal.jsx";
 import GameMenuModal from "../components/GameMenuModal.jsx";
 import TimeUpModal from "../components/TimeUpModal.jsx";
+import BlixtTimeUpModal from "../components/BlixtTimeUpModal.jsx";
 import WordRevealModal from "../components/WordRevealModal.jsx";
 import GameIntroModal from "../components/GameIntroModal.jsx";
 import BeatScoreBar from "../components/BeatScoreBar.jsx";
@@ -93,6 +94,10 @@ export default function GameScreen({
   const [showMenu, setShowMenu] = useState(false);
   const [showWordReveal, setShowWordReveal] = useState(false);
   const [timeIsUp, setTimeIsUp] = useState(false);
+  // Sant precis när tiden tar slut i en Blixt-runda — visas innan facit så
+  // spelaren direkt får veta att rundan är över och (om motståndarens
+  // poäng redan är känd) om de vann eller förlorade.
+  const [showBlixtTimeUp, setShowBlixtTimeUp] = useState(false);
   // Sant när spelaren valt att fortsätta spela efter att tiden tog slut —
   // klockan döljs och räknas inte längre. Resultatet är redan sparat vid
   // det laget (se submitCurrentScore/timer-effekten nedan) oavsett vad
@@ -191,9 +196,10 @@ export default function GameScreen({
     if (timeLeft <= 0) {
       submitCurrentScore();
       // Blixt tillåter ingen fri spelning efter tiden — rundan är över och
-      // spelaren går direkt till facit/resultat, inget val att göra.
+      // spelaren får först se att tiden gick ut (och ev. vann/förlorade)
+      // innan facit visas.
       if (allowFreePlay) setTimeIsUp(true);
-      else setShowWordReveal(true);
+      else setShowBlixtTimeUp(true);
       return;
     }
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
@@ -260,7 +266,7 @@ export default function GameScreen({
   };
 
   useEffect(() => {
-    if (showMenu || showWordReveal || timeIsUp || modalLength !== null || showIntro) return;
+    if (showMenu || showWordReveal || timeIsUp || showBlixtTimeUp || modalLength !== null || showIntro) return;
     const handleKeyDown = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Enter") {
@@ -511,6 +517,16 @@ export default function GameScreen({
           wordCount={found.length}
           onContinue={handleContinueFreePlay}
           onQuit={handleQuitAtTimeUp}
+        />
+      )}
+
+      {showBlixtTimeUp && (
+        <BlixtTimeUpModal
+          score={currentScore}
+          wordCount={found.length}
+          targetScore={targetScore}
+          opponentName={opponentName}
+          onContinue={() => { setShowBlixtTimeUp(false); setShowWordReveal(true); }}
         />
       )}
 
