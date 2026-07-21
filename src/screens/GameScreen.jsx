@@ -67,7 +67,7 @@ function guessTileMetrics(letterCount) {
 
 export default function GameScreen({
   sourceWord, onSubmitScore, onFinish, onBack, durationSeconds = GAME_DURATION_SECONDS, showLevelBar = true,
-  targetScore = null, opponentName = null, allowFreePlay = true,
+  targetScore = null, opponentName = null, allowFreePlay = true, skipIntro = false,
 }) {
   const sourceLetters = useMemo(() => sourceWord.split(""), [sourceWord]);
   const sourceCounts = useMemo(() => letterCounts(sourceWord), [sourceWord]);
@@ -83,8 +83,10 @@ export default function GameScreen({
     ];
   }, [sourceLetters]);
   // Sant tills spelaren stänger den pedagogiska introt — klockan börjar
-  // inte ticka och tangentbordsinput ignoreras medan den visas.
-  const [showIntro, setShowIntro] = useState(true);
+  // inte ticka och tangentbordsinput ignoreras medan den visas. skipIntro
+  // används när en egen förklaringsskärm redan visats innan (se
+  // GameInfoScreen.jsx) — annars förklaras samma regler två gånger i rad.
+  const [showIntro, setShowIntro] = useState(!skipIntro);
   const [timeLeft, setTimeLeft] = useState(durationSeconds);
   // Ordnad lista av index i sourceWord som är intryckta för det ord som byggs just nu.
   const [tappedIndices, setTappedIndices] = useState([]);

@@ -29,6 +29,7 @@ import { loadSeenStatuses, saveSeenStatuses } from "./game/matchSeen.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
+import GameInfoScreen from "./screens/GameInfoScreen.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import ArchiveScreen from "./screens/ArchiveScreen.jsx";
@@ -91,6 +92,9 @@ export default function App() {
   // pågår / väntar på mottagarval / opponenten spelar en accepterad
   // utmaning / opponentens resultat efteråt.
   const [blixtSourceWord, setBlixtSourceWord] = useState(null);
+  // Sant bara när rundan startas via hemskärmens nya förklaringsskärm
+  // (GameInfoScreen) — se handleStartBlixtFromInfo.
+  const [blixtSkipIntro, setBlixtSkipIntro] = useState(false);
   const [blixtDraftResult, setBlixtDraftResult] = useState(null); // { score, words, sourceWord }
   // Satt när en blixt-runda startats för att utmana en specifik spelare
   // direkt (t.ex. via "Utmana" på topplistan, se BlixtLeaderboardScreen) —
@@ -319,10 +323,28 @@ export default function App() {
     setScreen("blixt-play");
   }, []);
 
+  // Hemskärmens "BlixtSkrammel"-knapp går via en förklaringsskärm
+  // (GameInfoScreen) innan själva rundan — skipIntro=true på GameScreen
+  // efteråt så spelaren inte förklaras samma regler två gånger i rad.
+  const handleStartBlixtFromInfo = useCallback(async () => {
+    setBlixtSkipIntro(true);
+    await handlePlayBlixt();
+  }, [handlePlayBlixt]);
+
+  // Blixt-hubbens egna "Spela en blixt"-knapp går INTE via
+  // förklaringsskärmen (spelaren är redan inne i Blixt) — nollställer
+  // skipIntro ifall den råkat stå kvar sant från ett tidigare, avbrutet
+  // info-skärm-flöde.
+  const handlePlayBlixtFromHub = useCallback(async () => {
+    setBlixtSkipIntro(false);
+    await handlePlayBlixt();
+  }, [handlePlayBlixt]);
+
   // Utmana direkt från topplistan (global eller vänner, se
   // BlixtLeaderboardScreen) — samma flöde som "Spela en blixt", men
   // motståndaren är redan vald när blixt-choose-skärmen visas efteråt.
   const handleChallengeFromLeaderboard = useCallback(async (opponentId, opponentName) => {
+    setBlixtSkipIntro(false);
     setBlixtPresetOpponent({ id: opponentId, name: opponentName });
     const word = await pickBlixtWord(getDictionary());
     setBlixtSourceWord(word);
@@ -599,6 +621,20 @@ export default function App() {
     );
   }
 
+  if (screen === "blixt-info") {
+    return (
+      <GameInfoScreen
+        title="⚡ BlixtSkrammel"
+        description={[
+          "Du spelar en snabb 2-minutersrunda själv och försöker hitta så många ord som möjligt ur ett slumpat ord.",
+          "Efteråt utmanar du en vän eller en slumpad motståndare med din poäng — den som hittar flest poäng vinner duellen.",
+        ]}
+        onBack={() => navigate("home")}
+        onStart={handleStartBlixtFromInfo}
+      />
+    );
+  }
+
   if (screen === "blixt-play" && blixtSourceWord) {
     return (
       <GameScreen
@@ -606,6 +642,7 @@ export default function App() {
         durationSeconds={BLIXT_DURATION_SECONDS}
         showLevelBar={false}
         allowFreePlay={false}
+        skipIntro={blixtSkipIntro}
         onSubmitScore={() => {}}
         onFinish={handleBlixtPlayFinish}
         onBack={() => navigate("home")}
@@ -633,7 +670,7 @@ export default function App() {
         challenges={myBlixtChallenges}
         onRespond={handleRespondToChallenge}
         onPlay={handlePlayAcceptedChallenge}
-        onPlayNew={handlePlayBlixt}
+        onPlayNew={handlePlayBlixtFromHub}
         onDelete={handleDeleteChallenge}
         onLeaderboard={goToBlixtLeaderboard}
         onBack={() => navigate("home")}
@@ -673,6 +710,21 @@ export default function App() {
         opponentName={blixtResult.opponentName}
         onHome={() => navigate("home")}
         onBlixt={goToBlixt}
+      />
+    );
+  }
+
+  if (screen === "skrammelpaj-info") {
+    return (
+      <GameInfoScreen
+        title="🥧 SkrammelPaj"
+        description={[
+          "Du och en motståndare turas om att bilda ord ur en gemensam bokstavspool — bokstäverna försvinner ur poolen allt eftersom de används.",
+          "Den som inte hittar ett ord inom 2 minuter, eller inte kan hitta något mer alls, förlorar.",
+          "Du väljer om du vill utmana en vän, slumpa en motståndare, eller öva mot CPU (räknas inte till topplistan).",
+        ]}
+        onBack={() => navigate("home")}
+        onStart={handleStartSkrammelpaj}
       />
     );
   }
@@ -822,8 +874,8 @@ export default function App() {
         pendingSkrammelpajCount={pendingSkrammelpajCount}
         skrammelpajUpdatesCount={skrammelpajUpdatesCount}
         onPlay={handlePlayToday}
-        onPlayBlixt={handlePlayBlixt}
-        onPlaySkrammelpaj={handleStartSkrammelpaj}
+        onPlayBlixt={() => navigate("blixt-info")}
+        onPlaySkrammelpaj={() => navigate("skrammelpaj-info")}
         onArchive={openArchive}
         onLeaderboard={() => goToLeaderboard(todayStr())}
         onFriends={() => navigate("friends")}

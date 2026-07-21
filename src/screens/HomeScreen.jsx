@@ -61,12 +61,12 @@ export default function HomeScreen({
       </div>
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlayBlixt} style={styles.playButton}>Spela BlixtSkrammel mot en vän</button>
+          <button onClick={onPlayBlixt} style={styles.playButton}>BlixtSkrammel</button>
         </div>
       )}
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlaySkrammelpaj} style={styles.playButton}>Spela SkrammelPaj mot vän eller CPU</button>
+          <button onClick={onPlaySkrammelpaj} style={styles.playButton}>SkrammelPaj</button>
         </div>
       )}
       <div style={styles.secondaryRow}>
