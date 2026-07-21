@@ -9,6 +9,29 @@ function opponentNameOf(challenge, userId) {
   return challenge.creator_id === userId ? challenge.opponent_display_name : challenge.creator_display_name;
 }
 
+function opponentIdOf(challenge, userId) {
+  return challenge.creator_id === userId ? challenge.opponent_id : challenge.creator_id;
+}
+
+// Slår ihop flera samtidiga utmaningar mot samma motståndare inom en
+// sektion till en grupp, så listan tar mindre plats när man har flera
+// matcher på gång mot samma person.
+function groupByOpponent(challenges, userId) {
+  const groups = [];
+  const byId = new Map();
+  for (const c of challenges) {
+    const opponentId = opponentIdOf(c, userId);
+    let group = byId.get(opponentId);
+    if (!group) {
+      group = { opponentId, opponentName: opponentNameOf(c, userId), challenges: [] };
+      byId.set(opponentId, group);
+      groups.push(group);
+    }
+    group.challenges.push(c);
+  }
+  return groups;
+}
+
 function scoresOf(challenge, userId) {
   const opponentId = challenge.creator_id === userId ? challenge.opponent_id : challenge.creator_id;
   const rows = challenge.blixt_scores ?? [];
@@ -104,6 +127,42 @@ function ResultCard({ challenge, userId }) {
   );
 }
 
+// Visar en enda rad per motståndare. Med bara en match mot personen blir
+// det en vanlig rad; med flera blir det en hopfälld rad med antal som
+// fälls ut vid klick, så var och en av matcherna kan spelas/svaras på/tas
+// bort för sig.
+function ChallengeGroup({ opponentName, challenges, renderActions }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (challenges.length === 1) {
+    return (
+      <div style={styles.row}>
+        <span>{opponentName}</span>
+        <div style={styles.rowActions}>{renderActions(challenges[0])}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.group}>
+      <button onClick={() => setExpanded((v) => !v)} style={styles.groupHeader}>
+        <span>{opponentName} ({challenges.length})</span>
+        <span style={styles.chevron}>{expanded ? "▲" : "▼"}</span>
+      </button>
+      {expanded && (
+        <div style={styles.groupList}>
+          {challenges.map((c, i) => (
+            <div key={c.id} style={styles.row}>
+              <span style={styles.groupRowLabel}>Blixt {i + 1}</span>
+              <div style={styles.rowActions}>{renderActions(c)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TabButton({ active, onClick, children }) {
   return (
     <button onClick={onClick} style={{ ...styles.tabButton, ...(active ? styles.tabButtonActive : null) }}>
@@ -155,51 +214,67 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
 
           {grouped.needs_response.length > 0 && (
             <Section title="Väntar på ditt svar">
-              {grouped.needs_response.map((c) => (
-                <div key={c.id} style={styles.row}>
-                  <span>{opponentNameOf(c, user.id)}</span>
-                  <div style={styles.rowActions}>
-                    <button onClick={() => onRespond(c.id, true)} style={styles.smallButton}>Anta</button>
-                    <button onClick={() => onRespond(c.id, false)} style={styles.smallButtonMuted}>Ignorera</button>
-                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                  </div>
-                </div>
+              {groupByOpponent(grouped.needs_response, user.id).map((g) => (
+                <ChallengeGroup
+                  key={g.opponentId}
+                  opponentName={g.opponentName}
+                  challenges={g.challenges}
+                  renderActions={(c) => (
+                    <>
+                      <button onClick={() => onRespond(c.id, true)} style={styles.smallButton}>Anta</button>
+                      <button onClick={() => onRespond(c.id, false)} style={styles.smallButtonMuted}>Ignorera</button>
+                      <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
+                    </>
+                  )}
+                />
               ))}
             </Section>
           )}
 
           {grouped.your_turn.length > 0 && (
             <Section title="Din tur att spela">
-              {grouped.your_turn.map((c) => (
-                <div key={c.id} style={styles.row}>
-                  <span>{opponentNameOf(c, user.id)}</span>
-                  <div style={styles.rowActions}>
-                    <button onClick={() => onPlay(c)} style={styles.smallButton}>Spela</button>
-                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                  </div>
-                </div>
+              {groupByOpponent(grouped.your_turn, user.id).map((g) => (
+                <ChallengeGroup
+                  key={g.opponentId}
+                  opponentName={g.opponentName}
+                  challenges={g.challenges}
+                  renderActions={(c) => (
+                    <>
+                      <button onClick={() => onPlay(c)} style={styles.smallButton}>Spela</button>
+                      <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
+                    </>
+                  )}
+                />
               ))}
             </Section>
           )}
 
           {grouped.waiting_opponent_response.length > 0 && (
             <Section title="Väntar på svar">
-              {grouped.waiting_opponent_response.map((c) => (
-                <div key={c.id} style={styles.row}>
-                  <span>{opponentNameOf(c, user.id)}</span>
-                  <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                </div>
+              {groupByOpponent(grouped.waiting_opponent_response, user.id).map((g) => (
+                <ChallengeGroup
+                  key={g.opponentId}
+                  opponentName={g.opponentName}
+                  challenges={g.challenges}
+                  renderActions={(c) => (
+                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
+                  )}
+                />
               ))}
             </Section>
           )}
 
           {grouped.waiting_opponent_play.length > 0 && (
             <Section title="Väntar på motståndaren">
-              {grouped.waiting_opponent_play.map((c) => (
-                <div key={c.id} style={styles.row}>
-                  <span>{opponentNameOf(c, user.id)}</span>
-                  <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                </div>
+              {groupByOpponent(grouped.waiting_opponent_play, user.id).map((g) => (
+                <ChallengeGroup
+                  key={g.opponentId}
+                  opponentName={g.opponentName}
+                  challenges={g.challenges}
+                  renderActions={(c) => (
+                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
+                  )}
+                />
               ))}
             </Section>
           )}
@@ -267,6 +342,20 @@ const styles = {
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`,
   },
   rowActions: { display: "flex", gap: "0.4rem" },
+  group: {
+    display: "flex", flexDirection: "column", gap: "0.3rem",
+    background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`, overflow: "hidden",
+  },
+  groupHeader: {
+    display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0.75rem",
+    background: "transparent", border: "none", color: T.text, fontSize: "1rem", fontFamily: "inherit",
+    cursor: "pointer", width: "100%",
+  },
+  chevron: { color: T.muted, fontSize: "0.7rem" },
+  groupList: {
+    display: "flex", flexDirection: "column", gap: "0.4rem", padding: "0 0.5rem 0.5rem",
+  },
+  groupRowLabel: { color: T.muted, fontSize: "0.85rem" },
   smallButton: {
     padding: "0.4rem 0.7rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer",
