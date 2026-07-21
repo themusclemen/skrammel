@@ -56,7 +56,7 @@ export default function HomeScreen({
 
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={{ ...styles.playButton, animation: playedToday ? "none" : "skrammelBlink 1.2s steps(1, end) infinite" }}>
-          Skrammel
+          Dagens Skrammel
         </button>
       </div>
       {user && (
