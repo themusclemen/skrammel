@@ -16,3 +16,7 @@ export const SKRAMMELPAJ_MAX_OPEN_CHALLENGES = 20;
 // övergivande — skild från de aktiva 2 minuterna i SkrammelpajGameScreen,
 // som bara räknas medan spelskärmen faktiskt är öppen.
 export const SKRAMMELPAJ_TURN_DEADLINE_HOURS = 72;
+// Hur länge en mottagen utmaning får ligga obesvarad innan den automatiskt
+// ignoreras — skild från 72-timmarsgränsen ovan, som bara gäller EFTER att
+// matchen accepterats.
+export const SKRAMMELPAJ_ACCEPT_DEADLINE_HOURS = 24;

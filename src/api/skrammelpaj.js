@@ -1,7 +1,7 @@
 import { supabase, isSupabaseConfigured } from "../supabase.js";
 import { fetchFriends } from "./friends.js";
 import { letterCounts } from "../game/letters.js";
-import { SKRAMMELPAJ_TURN_DEADLINE_HOURS } from "../game/skrammelpajConstants.js";
+import { SKRAMMELPAJ_TURN_DEADLINE_HOURS, SKRAMMELPAJ_ACCEPT_DEADLINE_HOURS } from "../game/skrammelpajConstants.js";
 
 export async function createChallenge(creatorId, creatorName, opponentId, opponentName, letters) {
   if (!isSupabaseConfigured) return null;
@@ -152,6 +152,31 @@ export async function applyPendingForfeits(challenges, userId) {
     } catch {
       // Motståndarens klient (eller en annan flik) hann redan avsluta
       // samma match — inget att göra, nästa hämtning ser rätt slutstatus.
+    }
+  }
+  return stale.length > 0;
+}
+
+// Samma lata, self-reporterade mönster som ovan, men för oavgjorda
+// utmaningar: mottagaren har 24 timmar på sig att anta/ignorera innan
+// utmaningen automatiskt ignoreras (status "declined", samma väg som ett
+// aktivt "Ignorera"-klick).
+export async function applyPendingExpirations(challenges, userId) {
+  const deadlineMs = SKRAMMELPAJ_ACCEPT_DEADLINE_HOURS * 60 * 60 * 1000;
+  const now = Date.now();
+  const stale = challenges.filter(
+    (c) =>
+      c.status === "pending" &&
+      (c.creator_id === userId || c.opponent_id === userId) &&
+      now - new Date(c.created_at).getTime() > deadlineMs
+  );
+
+  for (const c of stale) {
+    try {
+      await respondToChallenge(c, false);
+    } catch {
+      // Motparten hann redan svara, eller en annan flik hann redan
+      // markera den — inget att göra, nästa hämtning ser rätt status.
     }
   }
   return stale.length > 0;

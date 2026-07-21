@@ -22,6 +22,7 @@ import {
   fetchMyChallenges as fetchMySkrammelpajChallenges,
   classifyChallenge as classifySkrammelpajChallenge,
   applyPendingForfeits as applyPendingSkrammelpajForfeits,
+  applyPendingExpirations as applyPendingSkrammelpajExpirations,
   computeRemainingCounts as computeSkrammelpajRemainingCounts,
 } from "./api/skrammelpaj.js";
 import { generateSkrammelpajPool } from "./game/skrammelpajPool.js";
@@ -173,14 +174,20 @@ export default function App() {
   }, [screen, user, myBlixtChallenges]);
 
   // Hämtar mina Skrammelpaj-matcher, och avgör i samma veva om någon av dem
-  // sprungit ut på 72-timmarsgränsen (self-reported, se
-  // applyPendingForfeits — ingen cron finns i appen) — om något ändrades
-  // hämtas listan om en gång till för att få de uppdaterade raderna.
+  // sprungit ut på 72-timmarsgränsen för en pågående tur eller 24-timmars-
+  // gränsen för en obesvarad utmaning (båda self-reported, se
+  // applyPendingForfeits/applyPendingExpirations — ingen cron finns i
+  // appen) — om något ändrades hämtas listan om en gång till för att få de
+  // uppdaterade raderna. Returnerar listan så anropare (t.ex. pollningen på
+  // spelskärmen) kan läsa av den direkt utan ett extra state-varv.
   const refreshSkrammelpajChallenges = useCallback(async () => {
-    if (!user) { setMySkrammelpajChallenges([]); return; }
-    const list = await fetchMySkrammelpajChallenges(user.id);
-    const changed = await applyPendingSkrammelpajForfeits(list, user.id);
-    setMySkrammelpajChallenges(changed ? await fetchMySkrammelpajChallenges(user.id) : list);
+    if (!user) { setMySkrammelpajChallenges([]); return []; }
+    let list = await fetchMySkrammelpajChallenges(user.id);
+    const forfeited = await applyPendingSkrammelpajForfeits(list, user.id);
+    const expired = await applyPendingSkrammelpajExpirations(list, user.id);
+    if (forfeited || expired) list = await fetchMySkrammelpajChallenges(user.id);
+    setMySkrammelpajChallenges(list);
+    return list;
   }, [user]);
 
   useEffect(() => { refreshSkrammelpajChallenges(); }, [refreshSkrammelpajChallenges]);
@@ -523,32 +530,31 @@ export default function App() {
     return challenge.creator_id === userId ? challenge.opponent_display_name : challenge.creator_display_name;
   }
 
-  // Lägger in draget; om matchen avgörs direkt (motståndarens pool tömd)
-  // visas resultatskärmen, annars går vi tillbaka till huben och väntar på
-  // motståndarens tur.
+  function skrammelpajOpponentIdFor(challenge, userId) {
+    return challenge.creator_id === userId ? challenge.opponent_id : challenge.creator_id;
+  }
+
+  // Lägger in draget och uppdaterar matchen lokalt — men navigerar INTE
+  // bort. Spelaren stannar kvar på spelskärmen, som själv (via challenge-
+  // proppen nedan) visar "väntar på motståndaren", pollar för motståndarens
+  // svar, och visar den pedagogiska sluta-modalen om draget avgjorde
+  // matchen. Se SkrammelpajGameScreen + handleSkrammelpajMatchEndContinue.
   const handleSkrammelpajSubmitWord = useCallback(async (word) => {
     if (!user || !activeSkrammelpajChallenge) return;
     const name = displayName ?? user.email.split("@")[0];
     const moves = activeSkrammelpajChallenge.skrammelpaj_moves ?? [];
     const outcome = await submitSkrammelpajMove(activeSkrammelpajChallenge, moves, user.id, name, word);
-    const opponentName = skrammelpajOpponentNameFor(activeSkrammelpajChallenge, user.id);
+    const opponentId = skrammelpajOpponentIdFor(activeSkrammelpajChallenge, user.id);
+    const newMove = { id: `local-${Date.now()}`, user_id: user.id, display_name: name, move_number: moves.length + 1, word };
 
-    if (outcome.completed) {
-      setSkrammelpajResult({
-        won: outcome.winnerId === user.id,
-        endReason: outcome.endReason,
-        opponentName,
-        moves: [...moves, { user_id: user.id, word }],
-      });
-      setActiveSkrammelpajChallenge(null);
-      await refreshSkrammelpajChallenges();
-      setScreen("skrammelpaj-result");
-      return;
-    }
-
-    setActiveSkrammelpajChallenge(null);
+    setActiveSkrammelpajChallenge((prev) => prev && {
+      ...prev,
+      skrammelpaj_moves: [...moves, newMove],
+      ...(outcome.completed
+        ? { status: "completed", winner_id: outcome.winnerId, loser_id: opponentId, end_reason: outcome.endReason }
+        : { current_turn_user_id: opponentId, turn_started_at: new Date().toISOString() }),
+    });
     await refreshSkrammelpajChallenges();
-    setScreen("skrammelpaj-hub");
   }, [user, displayName, activeSkrammelpajChallenge, refreshSkrammelpajChallenges]);
 
   // Självrapporterat nederlag (tiden gick ut, poolen var redan omöjlig, eller
@@ -568,14 +574,60 @@ export default function App() {
     setScreen("skrammelpaj-result");
   }, [user, activeSkrammelpajChallenge, refreshSkrammelpajChallenges]);
 
+  // Anropas av spelskärmens pedagogiska sluta-modal (både efter ett eget
+  // avgörande drag och efter att pollningen upptäckt att motståndaren
+  // avgjorde matchen) när spelaren klickar sig vidare — själva DB-skrivningen
+  // har redan skett (av vinnaren), så här återstår bara att visa
+  // resultatskärmen.
+  const handleSkrammelpajMatchEndContinue = useCallback(({ won, endReason, moves, opponentName }) => {
+    setSkrammelpajResult({ won, endReason, opponentName, moves });
+    setActiveSkrammelpajChallenge(null);
+    setScreen("skrammelpaj-result");
+  }, []);
+
   const goToSkrammelpaj = useCallback(async () => {
     await refreshSkrammelpajChallenges();
     setScreen("skrammelpaj-hub");
   }, [refreshSkrammelpajChallenges]);
 
+  // Lämnar spelskärmen utan att avgöra matchen — bara giltigt när det är
+  // motståndarens tur (annars finns ingen sådan knapp att trycka på), så
+  // inget mer än att gå tillbaka behövs.
+  const handleLeaveSkrammelpajGame = useCallback(async () => {
+    setActiveSkrammelpajChallenge(null);
+    await goToSkrammelpaj();
+  }, [goToSkrammelpaj]);
+
+  const handleLeaveSkrammelpajGameToHome = useCallback(() => {
+    setActiveSkrammelpajChallenge(null);
+    setScreen("home");
+  }, []);
+
   const goToSkrammelpajLeaderboard = useCallback(() => {
     setScreen("skrammelpaj-leaderboard");
   }, []);
+
+  // Ingen realtidskanal finns i appen (se applyPendingForfeits-kommentaren)
+  // — så länge spelaren sitter kvar på spelskärmen och väntar på
+  // motståndarens tur pollar vi istället med jämna mellanrum, så att draget
+  // syns utan att spelaren behöver navigera bort och tillbaka. Stannar
+  // automatiskt så fort det blir min tur igen eller matchen avgörs (då
+  // ändras beroendena nedan och effekten städas/startas inte om).
+  useEffect(() => {
+    if (screen !== "skrammelpaj-play" || !user || !activeSkrammelpajChallenge) return;
+    if (activeSkrammelpajChallenge.status !== "accepted") return;
+    if (activeSkrammelpajChallenge.current_turn_user_id === user.id) return;
+
+    const id = setInterval(async () => {
+      const list = await refreshSkrammelpajChallenges();
+      const updated = list.find((c) => c.id === activeSkrammelpajChallenge.id);
+      if (updated) setActiveSkrammelpajChallenge(updated);
+    }, 8000);
+    return () => clearInterval(id);
+  }, [
+    screen, user, refreshSkrammelpajChallenges,
+    activeSkrammelpajChallenge?.id, activeSkrammelpajChallenge?.status, activeSkrammelpajChallenge?.current_turn_user_id,
+  ]);
 
   if (user === undefined || !wordListReady) {
     return (
@@ -799,11 +851,15 @@ export default function App() {
         poolLetters={activeSkrammelpajChallenge.letters}
         remainingCounts={remainingCounts}
         opponentName={opponentName}
+        challenge={activeSkrammelpajChallenge}
+        userId={user.id}
         onSubmitWord={handleSkrammelpajSubmitWord}
         onTimeout={() => handleSkrammelpajLoss("timeout")}
         onGiveUp={() => handleSkrammelpajLoss("give_up")}
         onImpossible={() => handleSkrammelpajLoss("no_words_left")}
-        onBack={() => navigate("skrammelpaj-hub")}
+        onMatchEndContinue={handleSkrammelpajMatchEndContinue}
+        onBack={handleLeaveSkrammelpajGame}
+        onHome={handleLeaveSkrammelpajGameToHome}
       />
     );
   }

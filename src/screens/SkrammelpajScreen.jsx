@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { T } from "../theme.js";
 import { classifyChallenge, computeChallengeStats, openChallengeCount, describeEndReason } from "../api/skrammelpaj.js";
-import { SKRAMMELPAJ_MAX_OPEN_CHALLENGES } from "../game/skrammelpajConstants.js";
+import { SKRAMMELPAJ_MAX_OPEN_CHALLENGES, SKRAMMELPAJ_ACCEPT_DEADLINE_HOURS } from "../game/skrammelpajConstants.js";
 
 function opponentNameOf(challenge, userId) {
   return challenge.creator_id === userId ? challenge.opponent_display_name : challenge.creator_display_name;
@@ -59,10 +59,11 @@ function ResultCard({ challenge, userId }) {
   );
 }
 
-function Section({ title, children }) {
+function Section({ title, note, children }) {
   return (
     <div style={styles.section}>
       <div style={styles.sectionTitle}>{title}</div>
+      {note && <div style={styles.sectionNote}>{note}</div>}
       <div style={styles.list}>{children}</div>
     </div>
   );
@@ -110,6 +111,27 @@ function TabButton({ active, onClick, children }) {
   );
 }
 
+// En rads knapp/etikett beror på vilken av de två delstatusarna som slogs
+// ihop till samma sektion (PÅGÅENDE: din tur / motståndarens tur, VÄNTANDE:
+// väntar på ditt svar / väntar på motståndarens svar) — avgörs per rad här
+// istället för att hålla fyra separata sektioner som förut.
+function ongoingActions(challenge, userId, onPlay) {
+  return classifyChallenge(challenge, userId) === "your_turn"
+    ? <button onClick={() => onPlay(challenge)} style={styles.smallButton}>Spela</button>
+    : <span style={styles.mutedLabel}>Väntar på motståndaren</span>;
+}
+
+function waitingActions(challenge, userId, onRespond, onDelete) {
+  return classifyChallenge(challenge, userId) === "needs_response"
+    ? (
+      <>
+        <button onClick={() => onRespond(challenge, true)} style={styles.smallButton}>Anta</button>
+        <button onClick={() => onRespond(challenge, false)} style={styles.smallButtonMuted}>Ignorera</button>
+      </>
+    )
+    : <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>;
+}
+
 export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay, onPlayNew, onDelete, onLeaderboard, onBack }) {
   const [tab, setTab] = useState("open");
 
@@ -120,10 +142,14 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
   const open = challenges.filter((c) => classifyChallenge(c, user.id) !== "completed");
   const completed = challenges.filter((c) => classifyChallenge(c, user.id) === "completed");
 
-  const grouped = {
-    needs_response: [], your_turn: [], waiting_opponent_response: [], waiting_opponent_turn: [],
-  };
-  for (const c of open) grouped[classifyChallenge(c, user.id)].push(c);
+  const ongoing = open.filter((c) => {
+    const status = classifyChallenge(c, user.id);
+    return status === "your_turn" || status === "waiting_opponent_turn";
+  });
+  const waitingToStart = open.filter((c) => {
+    const status = classifyChallenge(c, user.id);
+    return status === "needs_response" || status === "waiting_opponent_response";
+  });
 
   return (
     <div style={styles.page}>
@@ -131,10 +157,6 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
       <div style={{ color: T.muted, fontSize: "0.85rem" }}>
         {openCount}/{SKRAMMELPAJ_MAX_OPEN_CHALLENGES} matcher pågår
       </div>
-
-      <button onClick={onPlayNew} disabled={atCap} style={{ ...styles.playButton, opacity: atCap ? 0.5 : 1 }}>
-        {atCap ? "Max antal matcher nått" : "Starta en Skrammelpaj"}
-      </button>
 
       <div style={styles.tabRow}>
         <TabButton active={tab === "open"} onClick={() => setTab("open")}>Ej klara</TabButton>
@@ -145,58 +167,31 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
         <>
           {open.length === 0 && <div style={{ color: T.muted }}>Inga pågående matcher just nu.</div>}
 
-          {grouped.needs_response.length > 0 && (
-            <Section title="Väntar på ditt svar">
-              {groupByOpponent(grouped.needs_response, user.id).map((g) => (
+          {ongoing.length > 0 && (
+            <Section title="PÅGÅENDE">
+              {groupByOpponent(ongoing, user.id).map((g) => (
                 <ChallengeGroup
                   key={g.opponentId}
                   opponentName={g.opponentName}
                   challenges={g.challenges}
-                  renderActions={(c) => (
-                    <>
-                      <button onClick={() => onRespond(c, true)} style={styles.smallButton}>Anta</button>
-                      <button onClick={() => onRespond(c, false)} style={styles.smallButtonMuted}>Ignorera</button>
-                    </>
-                  )}
+                  renderActions={(c) => ongoingActions(c, user.id, onPlay)}
                 />
               ))}
             </Section>
           )}
 
-          {grouped.your_turn.length > 0 && (
-            <Section title="Din tur att spela">
-              {groupByOpponent(grouped.your_turn, user.id).map((g) => (
+          {waitingToStart.length > 0 && (
+            <Section
+              title="VÄNTANDE"
+              note={`En obesvarad utmaning tas bort automatiskt om den inte antas inom ${SKRAMMELPAJ_ACCEPT_DEADLINE_HOURS} timmar.`}
+            >
+              {groupByOpponent(waitingToStart, user.id).map((g) => (
                 <ChallengeGroup
                   key={g.opponentId}
                   opponentName={g.opponentName}
                   challenges={g.challenges}
-                  renderActions={(c) => (
-                    <button onClick={() => onPlay(c)} style={styles.smallButton}>Spela</button>
-                  )}
+                  renderActions={(c) => waitingActions(c, user.id, onRespond, onDelete)}
                 />
-              ))}
-            </Section>
-          )}
-
-          {grouped.waiting_opponent_response.length > 0 && (
-            <Section title="Väntar på svar">
-              {groupByOpponent(grouped.waiting_opponent_response, user.id).map((g) => (
-                <ChallengeGroup
-                  key={g.opponentId}
-                  opponentName={g.opponentName}
-                  challenges={g.challenges}
-                  renderActions={(c) => (
-                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                  )}
-                />
-              ))}
-            </Section>
-          )}
-
-          {grouped.waiting_opponent_turn.length > 0 && (
-            <Section title="Väntar på motståndaren">
-              {groupByOpponent(grouped.waiting_opponent_turn, user.id).map((g) => (
-                <ChallengeGroup key={g.opponentId} opponentName={g.opponentName} challenges={g.challenges} renderActions={() => null} />
               ))}
             </Section>
           )}
@@ -231,6 +226,10 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
         </>
       )}
 
+      <button onClick={onPlayNew} disabled={atCap} style={{ ...styles.playButton, opacity: atCap ? 0.5 : 1 }}>
+        {atCap ? "Max antal matcher nått" : "Starta en ny Skrammelpaj"}
+      </button>
+
       <div style={styles.navRow}>
         <button onClick={onLeaderboard} style={styles.navButton}>Topplista</button>
         <button onClick={onBack} style={styles.navButton}>Till start</button>
@@ -256,7 +255,11 @@ const styles = {
   },
   tabButtonActive: { background: T.accent, borderColor: T.accent, color: "#121212" },
   section: { width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: "0.4rem" },
-  sectionTitle: { color: T.muted, fontSize: "0.8rem", fontWeight: 700, textAlign: "left" },
+  sectionTitle: {
+    color: T.accent, fontSize: "0.95rem", fontWeight: 800, letterSpacing: "0.04em", textAlign: "left",
+  },
+  sectionNote: { color: T.muted, fontSize: "0.75rem", textAlign: "left", marginTop: "-0.2rem" },
+  mutedLabel: { color: T.muted, fontSize: "0.8rem" },
   list: { display: "flex", flexDirection: "column", gap: "0.5rem" },
   row: {
     display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0.75rem",
