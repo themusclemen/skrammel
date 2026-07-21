@@ -9901,6 +9901,7 @@ cover
 covern
 cowboy
 cowboyen
+cp
 crack
 crawl
 crawla
@@ -45877,6 +45878,7 @@ paviljongen
 paviljonger
 pavor
 paxa
+pc
 peang
 pechblände
 pedagog
@@ -47401,6 +47403,7 @@ poänger
 poängtera
 poängterade
 poängtering
+pr
 pracka
 pragmatik
 pragmatiker
