@@ -133,8 +133,12 @@ export default function SkrammelpajCpuScreen({ onHome }) {
         setMoves(nextMoves);
         setPhase("playing");
         setPendingCpuWord(null);
-        if (findWordsFromCounts(countsAfterCpu, dictionary).length === 0) {
-          finish(false, "no_words_left", totalLetters(countsAfterCpu) === 0);
+        // Avgör matchen direkt bara om poolen bokstavligen är tom — finns
+        // det bokstäver kvar (hur omöjliga de än ser ut) ska spelaren
+        // alltid få sin tur och försöka; SkrammelpajGameScreen visar då
+        // brickorna som vanligt istället för att hoppa över turen.
+        if (totalLetters(countsAfterCpu) === 0) {
+          finish(false, "no_words_left", true);
         }
       }, REVEAL_HOLD_MS);
     }, REVEAL_LOCK_MS);
@@ -276,6 +280,7 @@ export default function SkrammelpajCpuScreen({ onHome }) {
       {historyStrip}
       <SkrammelpajGameScreen
         key={moves.length}
+        poolLetters={pool.letters}
         remainingCounts={remainingCounts}
         opponentName="CPU"
         skipIntro={moves.length > 0}

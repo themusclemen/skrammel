@@ -655,3 +655,32 @@ banner/notis-mönster som Blixt). Databas:
 körd mot `skrammel-beta` än — kräver `supabase db push --linked --yes`,
 en skarp databasändring som ska köras efter uttrycklig bekräftelse.
 Ej manuellt testat i webbläsare än.
+
+**Speluppslipning efter användarfeedback (2026-07-21):**
+- **CPU:ns drag** var tidigare omärkbart snabbt (löstes samma render).
+  `SkrammelpajCpuScreen.jsx` fick en riktig sekvens: 1.8–3.2s "tänker"
+  (jittrande bokstavsbrickor + roterande statustext), sen ett ord som låser
+  sig bokstav för bokstav och står kvar synligt en stund innan turen går
+  vidare. En löpande draghistorik syns nu under hela matchen, inte bara på
+  slutresultatet.
+- **Automatisk förlust var för hastig:** en tur avgjordes tidigare direkt så
+  fort `findWordsFromCounts` inte hittade något bildbart ord kvar, även om
+  bokstäver fanns kvar (t.ex. "XY") — spelaren fick aldrig ens se brickorna.
+  Ändrat till att bara den bokstavligt TOMMA poolen avgör automatiskt
+  (`totalLetters(remainingCounts) === 0`); annars får spelaren alltid sin
+  tur och en ärlig chans att försöka, med timeout som enda utväg om det
+  visar sig omöjligt. Samma princip gäller nu även i `api/skrammelpaj.js`s
+  `submitMove` (advancerar alltid turen om poolen inte är helt tom) och i
+  `SkrammelpajCpuScreen.jsx` (CPU:ns egen seger avgörs bara av en tom pool).
+  `SkrammelpajLossModal`s text för det läget omformulerad till "Bokstäverna
+  tog slut!" eftersom det nu bara betyder exakt det.
+- **Turordning vid accept:** ändrad från creatorn (utmanaren) till
+  opponenten (den utmanade) — kändes trevligare att den som blev utmanad
+  får spela första draget, inte bara den som redan valde tillfället.
+- **Bokstavsgridden visar nu hela den ursprungliga poolen** i fast ordning
+  hela matchen (inte bara kvarvarande bokstäver omsorterade varje tur) —
+  redan förbrukade bokstäver visas gråtonade (fortfarande läsbara) istället
+  för att bara försvinna, så spelaren kan följa hela poolens historik.
+  Kräver att den ursprungliga `letters`-strängen (`poolLetters`-prop) skickas
+  in till `SkrammelpajGameScreen` av båda anroparna (App.jsx för async,
+  `SkrammelpajCpuScreen.jsx` för CPU-läget).

@@ -533,7 +533,7 @@ export default function App() {
     if (!user || !activeSkrammelpajChallenge) return;
     const name = displayName ?? user.email.split("@")[0];
     const moves = activeSkrammelpajChallenge.skrammelpaj_moves ?? [];
-    const outcome = await submitSkrammelpajMove(activeSkrammelpajChallenge, moves, user.id, name, word, getDictionary());
+    const outcome = await submitSkrammelpajMove(activeSkrammelpajChallenge, moves, user.id, name, word);
     const opponentName = skrammelpajOpponentNameFor(activeSkrammelpajChallenge, user.id);
 
     if (outcome.completed) {
@@ -780,6 +780,7 @@ export default function App() {
     );
     return (
       <SkrammelpajGameScreen
+        poolLetters={activeSkrammelpajChallenge.letters}
         remainingCounts={remainingCounts}
         opponentName={opponentName}
         onSubmitWord={handleSkrammelpajSubmitWord}

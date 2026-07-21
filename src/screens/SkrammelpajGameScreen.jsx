@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { T } from "../theme.js";
-import { getDictionary } from "../game/wordList.js";
-import { findWordsFromCounts } from "../game/findWords.js";
 import { evaluateSkrammelpajMove, SkrammelpajGuessResult } from "../game/evaluateSkrammelpajGuess.js";
 import { SKRAMMELPAJ_DURATION_SECONDS } from "../game/skrammelpajConstants.js";
 import GameIntroModal from "../components/GameIntroModal.jsx";
@@ -13,12 +11,29 @@ const FEEDBACK_MESSAGES = {
   [SkrammelpajGuessResult.NOT_A_WORD]: "Ej godkänt ord",
 };
 
-function expandCounts(counts) {
-  const letters = [];
-  for (const [letter, n] of Object.entries(counts)) {
-    for (let i = 0; i < n; i++) letters.push(letter);
-  }
-  return letters.sort((a, b) => a.localeCompare(b, "sv"));
+// Går igenom den URSPRUNGLIGA poolen i sin fasta ordning och markerar vilka
+// positioner som redan är förbrukade av tidigare drag (både egna och
+// motståndarens) — genom att "checka av" mot remainingCounts bokstav för
+// bokstav. Vilken FYSISK position som räknas som förbrukad för en given
+// bokstav spelar ingen roll (de är identiska), bara att rätt ANTAL blir det,
+// så brickornas positioner håller sig stabila hela matchen istället för att
+// hoppa runt (som de gjorde när gridden byggdes om från remainingCounts
+// varje tur).
+function deriveConsumed(originalLetters, remainingCounts) {
+  const available = { ...remainingCounts };
+  const consumed = new Set();
+  originalLetters.forEach((letter, i) => {
+    if ((available[letter] ?? 0) > 0) {
+      available[letter] -= 1;
+    } else {
+      consumed.add(i);
+    }
+  });
+  return consumed;
+}
+
+function totalLetters(counts) {
+  return Object.values(counts).reduce((sum, n) => sum + Math.max(n, 0), 0);
 }
 
 // Spelar EN tur mot en given kvarvarande bokstavspool och rapporterar
@@ -27,16 +42,25 @@ function expandCounts(counts) {
 // för en CPU-match: kör CPU:ns svar direkt och visar samma komponent igen
 // för nästa tur). Ingen poäng, inget "hitta så många ord du kan" — bara
 // bilda ETT ord innan tiden går ut.
+//
+// poolLetters är den URSPRUNGLIGA, oförändrade poolen (samma sträng hela
+// matchen) — visas i sin helhet med redan förbrukade bokstäver gråtonade,
+// så spelaren ser vad som är kvar OCH vad som redan är spelat, inte bara en
+// krympande lista.
 export default function SkrammelpajGameScreen({
-  remainingCounts, opponentName, durationSeconds = SKRAMMELPAJ_DURATION_SECONDS,
+  poolLetters, remainingCounts, opponentName, durationSeconds = SKRAMMELPAJ_DURATION_SECONDS,
   skipIntro = false, onSubmitWord, onTimeout, onGiveUp, onImpossible, onBack,
 }) {
-  const dictionary = getDictionary();
-  const letters = useMemo(() => expandCounts(remainingCounts), [remainingCounts]);
-  const noWordsAvailable = useMemo(
-    () => findWordsFromCounts(remainingCounts, dictionary).length === 0,
-    [remainingCounts, dictionary]
+  const originalLetters = useMemo(() => poolLetters.split(""), [poolLetters]);
+  const consumedIndices = useMemo(
+    () => deriveConsumed(originalLetters, remainingCounts),
+    [originalLetters, remainingCounts]
   );
+  // Bara den bokstavligt TOMMA poolen avgör turen automatiskt — även om
+  // inget ord går att bilda av det som finns kvar (t.ex. "XY") ska
+  // spelaren ändå få se brickorna och försöka. Annars kändes det orättvist
+  // abrupt att bli tillsagd "du förlorade" utan att ens få prova.
+  const poolEmpty = totalLetters(remainingCounts) === 0;
 
   // I CPU-läget visas introt bara på första turen (varje efterföljande tur
   // är samma session, inte en ny — att förklara reglerna igen varje gång
@@ -54,24 +78,26 @@ export default function SkrammelpajGameScreen({
   const [lossModal, setLossModal] = useState(null);
   const resolvedRef = useRef(false);
 
-  const usedIndices = useMemo(() => new Set(tappedIndices), [tappedIndices]);
+  const tappedSet = useMemo(() => new Set(tappedIndices), [tappedIndices]);
+  const isDisabled = useCallback((i) => consumedIndices.has(i) || tappedSet.has(i), [consumedIndices, tappedSet]);
   const currentWord = useMemo(
-    () => tappedIndices.map((i) => letters[i]).join(""),
-    [tappedIndices, letters]
+    () => tappedIndices.map((i) => originalLetters[i]).join(""),
+    [tappedIndices, originalLetters]
   );
+  const remainingCount = originalLetters.length - consumedIndices.size;
 
   // Poolen kan redan vara omöjlig när turen öppnas (motståndarens senaste
   // drag tömde ut det sista spelbara läget) — spelaren förlorar direkt
   // istället för att få en tur de aldrig kan vinna.
   useEffect(() => {
-    if (noWordsAvailable && !resolvedRef.current) {
+    if (poolEmpty && !resolvedRef.current) {
       resolvedRef.current = true;
       setLossModal({ reason: "no_words_left", onContinue: onImpossible });
     }
-  }, [noWordsAvailable, onImpossible]);
+  }, [poolEmpty, onImpossible]);
 
   useEffect(() => {
-    if (showIntro || noWordsAvailable) return;
+    if (showIntro || poolEmpty) return;
     if (timeLeft <= 0) {
       if (!resolvedRef.current) {
         resolvedRef.current = true;
@@ -81,10 +107,10 @@ export default function SkrammelpajGameScreen({
     }
     const id = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(id);
-  }, [timeLeft, showIntro, noWordsAvailable, onTimeout]);
+  }, [timeLeft, showIntro, poolEmpty, onTimeout]);
 
   const handleTileTap = (i) => {
-    if (usedIndices.has(i)) return;
+    if (isDisabled(i)) return;
     setTappedIndices((prev) => [...prev, i]);
     setFeedback(null);
   };
@@ -111,7 +137,7 @@ export default function SkrammelpajGameScreen({
   }, [currentWord, tappedIndices.length, remainingCounts, onSubmitWord]);
 
   useEffect(() => {
-    if (showMenu || showIntro || noWordsAvailable) return;
+    if (showMenu || showIntro || poolEmpty) return;
     const handleKeyDown = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Enter") {
@@ -122,7 +148,7 @@ export default function SkrammelpajGameScreen({
         handleBackspace();
       } else if (e.key.length === 1) {
         const letter = e.key.toUpperCase();
-        const idx = letters.findIndex((l, i) => l === letter && !usedIndices.has(i));
+        const idx = originalLetters.findIndex((l, i) => l === letter && !isDisabled(i));
         if (idx !== -1) handleTileTap(idx);
       }
     };
@@ -130,7 +156,7 @@ export default function SkrammelpajGameScreen({
     return () => window.removeEventListener("keydown", handleKeyDown);
   });
 
-  if (noWordsAvailable) {
+  if (poolEmpty) {
     return (
       <div style={styles.page}>
         {lossModal && <SkrammelpajLossModal reason={lossModal.reason} onContinue={lossModal.onContinue} />}
@@ -166,7 +192,7 @@ export default function SkrammelpajGameScreen({
         ) : (
           <div style={styles.guessRow}>
             {tappedIndices.map((letterIdx, pos) => (
-              <div key={pos} style={styles.guessTile}>{letters[letterIdx]}</div>
+              <div key={pos} style={styles.guessTile}>{originalLetters[letterIdx]}</div>
             ))}
           </div>
         )}
@@ -174,18 +200,27 @@ export default function SkrammelpajGameScreen({
       </div>
 
       <div style={styles.bottomArea}>
-        <div style={styles.poolLabel}>{letters.length} bokstäver kvar i poolen</div>
+        <div style={styles.poolLabel}>{remainingCount} bokstäver kvar i poolen</div>
         <div style={styles.tileGrid}>
-          {letters.map((letter, i) => (
-            <button
-              key={i}
-              onClick={() => handleTileTap(i)}
-              disabled={usedIndices.has(i)}
-              style={{ ...styles.tile, ...(usedIndices.has(i) ? styles.tileUsed : null) }}
-            >
-              {usedIndices.has(i) ? "" : letter}
-            </button>
-          ))}
+          {originalLetters.map((letter, i) => {
+            const consumed = consumedIndices.has(i);
+            const tapped = tappedSet.has(i);
+            return (
+              <button
+                key={i}
+                onClick={() => handleTileTap(i)}
+                disabled={consumed || tapped}
+                title={consumed ? "Redan använd" : undefined}
+                style={{
+                  ...styles.tile,
+                  ...(consumed ? styles.tileConsumed : null),
+                  ...(tapped ? styles.tileTapped : null),
+                }}
+              >
+                {tapped ? "" : letter}
+              </button>
+            );
+          })}
         </div>
 
         <div style={styles.controlsRow}>
@@ -272,7 +307,14 @@ const styles = {
     background: T.tile, border: `1px solid ${T.tileBorder}`, borderRadius: 8, fontWeight: 700,
     color: T.tileText, cursor: "pointer", padding: 0,
   },
-  tileUsed: { background: T.tileEmpty, border: `1px dashed ${T.tileEmptyBorder}`, cursor: "default" },
+  // Redan spelad i ett TIDIGARE drag — bokstaven syns fortfarande (gråtonad)
+  // så spelaren kan se hela poolens historik, till skillnad från tileTapped.
+  tileConsumed: {
+    background: "transparent", border: `1px dashed ${T.tileEmptyBorder}`, color: T.muted, opacity: 0.45, cursor: "default",
+  },
+  // Vald för ordet man bygger just nu (visas redan i guessRow ovanför) —
+  // tom bricka, samma som tidigare beteende.
+  tileTapped: { background: T.tileEmpty, border: `1px dashed ${T.tileEmptyBorder}`, cursor: "default" },
   controlsRow: { display: "flex", gap: "0.6rem", width: "100%", marginTop: "0.8rem" },
   iconButton: {
     flex: 1, height: "2.8rem", borderRadius: 8, border: `1px solid ${T.border}`,

@@ -1,8 +1,11 @@
 import { T } from "../theme.js";
 
+// no_words_left betyder numera bokstavligen att poolen är TOM — så länge
+// det finns bokstäver kvar (hur hopplösa de än ser ut, t.ex. "XY") får
+// spelaren alltid försöka; enda vägen att förlora då är timeout.
 const REASON_MESSAGES = {
   timeout: "Tiden tog slut — du hann inte bilda ett ord i tid.",
-  no_words_left: "Inga fler ord går att bilda av de kvarvarande bokstäverna.",
+  no_words_left: "Bokstäverna tog slut! Poolen är tom, det finns inget mer att bilda ord av.",
 };
 
 // Skrammelpajs motsvarighet till BlixtTimeUpModal — men till skillnad från

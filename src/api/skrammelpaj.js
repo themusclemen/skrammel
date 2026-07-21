@@ -1,6 +1,6 @@
 import { supabase, isSupabaseConfigured } from "../supabase.js";
 import { fetchFriends } from "./friends.js";
-import { letterCounts, canFormWord } from "../game/letters.js";
+import { letterCounts } from "../game/letters.js";
 import { SKRAMMELPAJ_TURN_DEADLINE_HOURS } from "../game/skrammelpajConstants.js";
 
 export async function createChallenge(creatorId, creatorName, opponentId, opponentName, letters) {
@@ -21,14 +21,16 @@ export async function createChallenge(creatorId, creatorName, opponentId, oppone
   return data;
 }
 
-// Vid accept blir det creatorns tur (de utmanade ju) — turen och dess
+// Vid accept blir det mottagarens (den utmanades) tur — trevligare att den
+// som blev utmanad får sätta tonen med första draget än att utmanaren, som
+// redan valde tillfället, även får spela först. Turen och dess
 // 72-timmarsklocka startar här, inte vid utmaningens skapande.
 export async function respondToChallenge(challenge, accept) {
   if (!isSupabaseConfigured) return;
   const update = accept
     ? {
         status: "accepted",
-        current_turn_user_id: challenge.creator_id,
+        current_turn_user_id: challenge.opponent_id,
         turn_started_at: new Date().toISOString(),
       }
     : { status: "declined" };
@@ -84,24 +86,15 @@ export function computeRemainingCounts(challenge, moves) {
   return counts;
 }
 
-// Finns det NÅGOT ord i ordlistan som går att bilda av de kvarvarande
-// bokstäverna? Avgör om nästa spelare överhuvudtaget kan göra ett drag.
-// Samma multiset-matchning (canFormWord) som resten av spelmotorn, bara
-// itererad över hela ordlistan istället för ett enda källord.
-function hasAnyFormableWord(counts, dictionary) {
-  const maxLength = Object.values(counts).reduce((sum, n) => sum + Math.max(n, 0), 0);
-  if (maxLength <= 0) return false;
-  for (const word of dictionary) {
-    if (word.length > maxLength) continue;
-    if (canFormWord(word, counts)) return true;
-  }
-  return false;
+function totalLetters(counts) {
+  return Object.values(counts).reduce((sum, n) => sum + Math.max(n, 0), 0);
 }
 
-// Lägger in draget, och avgör om matchen är slut (poolen kan inte längre ge
-// motståndaren något ord) eller om turen bara går vidare. Anropas av den
-// spelare som just gjort sitt drag.
-export async function submitMove(challenge, moves, userId, displayName, word, dictionary) {
+// Lägger in draget. Matchen avgörs direkt bara om poolen bokstavligen är
+// tom — så länge det finns bokstäver kvar (hur omöjliga de än är att bilda
+// ord av, t.ex. "XY") går turen vidare som vanligt, så motståndaren alltid
+// får chansen att försöka själv istället för att hoppas över i onödan.
+export async function submitMove(challenge, moves, userId, displayName, word) {
   const moveNumber = moves.length + 1;
   if (isSupabaseConfigured) {
     const { error } = await supabase.from("skrammelpaj_moves").insert({
@@ -117,7 +110,7 @@ export async function submitMove(challenge, moves, userId, displayName, word, di
   const opponentId = challenge.creator_id === userId ? challenge.opponent_id : challenge.creator_id;
   const remaining = computeRemainingCounts(challenge, [...moves, { word }]);
 
-  if (!hasAnyFormableWord(remaining, dictionary)) {
+  if (totalLetters(remaining) === 0) {
     await completeChallenge(challenge.id, userId, opponentId, "no_words_left");
     return { completed: true, winnerId: userId, endReason: "no_words_left" };
   }
