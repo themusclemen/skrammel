@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
-import { submitScore, fetchUserPlayedDates, hasPlayedDate, fetchUserStats } from "./api/scores.js";
+import { submitScore, fetchUserPlayedDates, fetchUserStats } from "./api/scores.js";
 import { loadWordList, getDictionary } from "./game/wordList.js";
 import { computeStreak } from "./game/streak.js";
 import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
@@ -32,6 +32,7 @@ import GameScreen from "./screens/GameScreen.jsx";
 import GameInfoScreen from "./screens/GameInfoScreen.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
+import TopplistorScreen from "./screens/TopplistorScreen.jsx";
 import ArchiveScreen from "./screens/ArchiveScreen.jsx";
 import AuthScreen from "./screens/AuthScreen.jsx";
 import AdminWordsScreen from "./screens/AdminWordsScreen.jsx";
@@ -47,7 +48,6 @@ import SkrammelpajGameScreen from "./screens/SkrammelpajGameScreen.jsx";
 import SkrammelpajCpuScreen from "./screens/SkrammelpajCpuScreen.jsx";
 import SkrammelpajResultScreen from "./screens/SkrammelpajResultScreen.jsx";
 import SkrammelpajLeaderboardScreen from "./screens/SkrammelpajLeaderboardScreen.jsx";
-import ReplayConfirmModal from "./components/ReplayConfirmModal.jsx";
 import FriendInviteModal from "./components/FriendInviteModal.jsx";
 
 // Prefix för matchSeen.js — skiljer de två spelens lokala "sedd status"-lagring åt.
@@ -73,15 +73,14 @@ export default function App() {
   const [wordListReady, setWordListReady] = useState(false);
   const [sourceWord, setSourceWord] = useState(null);
   const [playingDate, setPlayingDate] = useState(null); // datumet för pusslet som spelas/spelades
-  // Sant när spelaren valt att spela om ett redan klarat datum ur arkivet —
-  // se ReplayConfirmModal. Resultatet sparas då inte till topplistan.
+  // Sant när spelaren valt att spela om ett redan klarat datum — antingen
+  // dagens (se handleStartDailyFromInfo) eller ett ur arkivet (se
+  // ArchiveScreen.jsx:s egen ReplayConfirmModal). Resultatet sparas då inte
+  // till topplistan.
   const [isReplay, setIsReplay] = useState(false);
   const [leaderboardDate, setLeaderboardDate] = useState(null);
   const [lastResult, setLastResult] = useState(null); // { score, words }
   const [archiveData, setArchiveData] = useState(null); // { playableDates, playedDates }
-  // Sant medan vi väntar på att spelaren bekräftar en repris av dagens ord
-  // (via "Spela dagens skrammel" när den redan är klarad) — se handlePlayToday.
-  const [showTodayReplayConfirm, setShowTodayReplayConfirm] = useState(false);
   // Underlag för spelstreck och bästa nivå — se HomeScreen/ResultScreen.
   const [userStats, setUserStats] = useState({ playedDates: [], levelTimesList: [] });
   // Läst en gång ur adressraden vid mount (/friend/<uuid>?name=...) — se
@@ -256,15 +255,13 @@ export default function App() {
     });
   }, []);
 
-  // Fångar en repris av dagens ord från hemskärmen (Spela dagens skrammel)
-  // innan spelet startar — precis som ReplayConfirmModal gör i arkivet.
-  const handlePlayToday = useCallback(async () => {
-    if (user && await hasPlayedDate(user.id, todayStr())) {
-      setShowTodayReplayConfirm(true);
-      return;
-    }
-    startGame(todayStr());
-  }, [user, startGame]);
+  // Startar dagens ord från "Skrammel"-infoskärmen (se screen === "daily-info")
+  // — playedToday är redan känt och visat där, så till skillnad från den
+  // gamla direktknappen behövs ingen reaktiv ReplayConfirmModal-bekräftelse
+  // här; spelaren har redan sett statusen och valt medvetet.
+  const handleStartDailyFromInfo = useCallback(() => {
+    startGame(todayStr(), { isReplay: playedToday });
+  }, [startGame, playedToday]);
 
   const goToLeaderboard = useCallback((date) => {
     setLeaderboardDate(date);
@@ -610,6 +607,23 @@ export default function App() {
     return <AuthScreen onDone={() => navigate("home")} />;
   }
 
+  if (screen === "daily-info") {
+    return (
+      <GameInfoScreen
+        title="✨ Skrammel"
+        description={
+          playedToday
+            ? ["Du har redan spelat dagens Skrammel!", "Du kan spela igen (räknas inte till topplistan), eller kika på tidigare dagar i kalendern."]
+            : ["Hitta så många ord du kan ur dagens ord innan tiden går ut (5 minuter).", "Ett nytt ord varje dag — missar du en dag kan du alltid spela den i efterhand via kalendern."]
+        }
+        startLabel={playedToday ? "Spela igen" : "Starta"}
+        onBack={() => navigate("home")}
+        onStart={handleStartDailyFromInfo}
+        secondaryAction={{ label: "📅 Kalender — tidigare dagar", onClick: openArchive }}
+      />
+    );
+  }
+
   if (screen === "game" && sourceWord) {
     return (
       <GameScreen
@@ -631,6 +645,7 @@ export default function App() {
         ]}
         onBack={() => navigate("home")}
         onStart={handleStartBlixtFromInfo}
+        secondaryAction={user ? { label: "📋 Mina matcher", onClick: goToBlixt } : undefined}
       />
     );
   }
@@ -725,6 +740,7 @@ export default function App() {
         ]}
         onBack={() => navigate("home")}
         onStart={handleStartSkrammelpaj}
+        secondaryAction={user ? { label: "📋 Mina matcher", onClick: goToSkrammelpaj } : undefined}
       />
     );
   }
@@ -835,6 +851,17 @@ export default function App() {
     );
   }
 
+  if (screen === "topplistor") {
+    return (
+      <TopplistorScreen
+        onDailyLeaderboard={() => goToLeaderboard(todayStr())}
+        onBlixtLeaderboard={goToBlixtLeaderboard}
+        onSkrammelpajLeaderboard={goToSkrammelpajLeaderboard}
+        onBack={() => navigate("home")}
+      />
+    );
+  }
+
   if (screen === "friends" && user) {
     return (
       <FriendsScreen user={user} displayName={displayName} onBack={() => navigate("home")} />
@@ -874,23 +901,16 @@ export default function App() {
         blixtUpdatesCount={blixtUpdatesCount}
         pendingSkrammelpajCount={pendingSkrammelpajCount}
         skrammelpajUpdatesCount={skrammelpajUpdatesCount}
-        onPlay={handlePlayToday}
+        onPlay={() => navigate("daily-info")}
         onPlayBlixt={() => navigate("blixt-info")}
         onPlaySkrammelpaj={() => navigate("skrammelpaj-info")}
-        onArchive={openArchive}
-        onLeaderboard={() => goToLeaderboard(todayStr())}
+        onTopplistor={() => navigate("topplistor")}
         onFriends={() => navigate("friends")}
         onGoToBlixt={goToBlixt}
         onGoToSkrammelpaj={goToSkrammelpaj}
         onLogin={() => navigate("auth")}
         onSignOut={handleSignOut}
       />
-      {showTodayReplayConfirm && (
-        <ReplayConfirmModal
-          onConfirm={() => { setShowTodayReplayConfirm(false); startGame(todayStr(), { isReplay: true }); }}
-          onCancel={() => setShowTodayReplayConfirm(false)}
-        />
-      )}
       {pendingInvite && user && pendingInvite.inviterId !== user.id && (
         <FriendInviteModal
           inviterName={pendingInvite.inviterName}

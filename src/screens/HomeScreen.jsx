@@ -3,7 +3,7 @@ import { T } from "../theme.js";
 export default function HomeScreen({
   user, displayName, streak, bestLevel, playedToday = false,
   pendingBlixtCount = 0, blixtUpdatesCount = 0, pendingSkrammelpajCount = 0, skrammelpajUpdatesCount = 0,
-  onPlay, onPlayBlixt, onPlaySkrammelpaj, onArchive, onLeaderboard, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
+  onPlay, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
   // Slår ihop "väntar på dig"/"uppdaterad" till EN banner per spel (väntar
   // vinner om båda är sanna) — fyra separata banners kändes för mycket
@@ -56,7 +56,7 @@ export default function HomeScreen({
 
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={{ ...styles.playButton, animation: playedToday ? "none" : "skrammelBlink 1.2s steps(1, end) infinite" }}>
-          Dagens Skrammel
+          Skrammel
         </button>
       </div>
       {user && (
@@ -70,10 +70,7 @@ export default function HomeScreen({
         </div>
       )}
       <div style={styles.secondaryRow}>
-        <button onClick={onArchive} style={styles.secondaryButton}>Tidigare Dagens Skrammel</button>
-        <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista för Dagens Skrammel</button>
-        {user && <button onClick={onGoToBlixt} style={styles.secondaryButton}>Blixt-sida</button>}
-        {user && <button onClick={onGoToSkrammelpaj} style={styles.secondaryButton}>Skrammelpaj-sida</button>}
+        <button onClick={onTopplistor} style={styles.secondaryButton}>Topplistor</button>
         {user && <button onClick={onFriends} style={styles.secondaryButton}>Vänner</button>}
       </div>
 
