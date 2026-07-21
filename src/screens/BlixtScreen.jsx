@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { T } from "../theme.js";
 import { classifyChallenge, computeChallengeStats, openChallengeCount } from "../api/blixt.js";
-import { BLIXT_MAX_OPEN_CHALLENGES } from "../game/blixtConstants.js";
+import { BLIXT_MAX_OPEN_CHALLENGES, BLIXT_ACCEPT_DEADLINE_HOURS } from "../game/blixtConstants.js";
 
 const OPEN_CHALLENGE_VISIBLE_MS = 48 * 60 * 60 * 1000;
 
@@ -53,10 +53,11 @@ function wordDiff(mineWords, theirWords) {
   };
 }
 
-function Section({ title, children }) {
+function Section({ title, note, children }) {
   return (
     <div style={styles.section}>
       <div style={styles.sectionTitle}>{title}</div>
+      {note && <div style={styles.sectionNote}>{note}</div>}
       <div style={styles.list}>{children}</div>
     </div>
   );
@@ -171,6 +172,34 @@ function TabButton({ active, onClick, children }) {
   );
 }
 
+// En rads knappar beror på vilken av de två delstatusarna som slogs ihop
+// till samma sektion (PÅGÅENDE: din tur / motståndarens tur, VÄNTANDE:
+// väntar på ditt svar / väntar på motståndarens svar) — avgörs per rad här
+// istället för att hålla fyra separata sektioner som förut. Samma mönster
+// som SkrammelpajScreen.jsx.
+function ongoingActions(challenge, userId, onPlay, onDelete) {
+  return classifyChallenge(challenge, userId) === "your_turn"
+    ? (
+      <>
+        <button onClick={() => onPlay(challenge)} style={styles.smallButton}>Spela</button>
+        <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
+      </>
+    )
+    : <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>;
+}
+
+function waitingActions(challenge, userId, onRespond, onDelete) {
+  return classifyChallenge(challenge, userId) === "needs_response"
+    ? (
+      <>
+        <button onClick={() => onRespond(challenge.id, true)} style={styles.smallButton}>Anta</button>
+        <button onClick={() => onRespond(challenge.id, false)} style={styles.smallButtonMuted}>Ignorera</button>
+        <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
+      </>
+    )
+    : <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>;
+}
+
 export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPlayNew, onDelete, onLeaderboard, onBack }) {
   const [tab, setTab] = useState("open");
 
@@ -185,10 +214,14 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
   });
   const completed = challenges.filter((c) => classifyChallenge(c, user.id) === "completed");
 
-  const grouped = {
-    needs_response: [], your_turn: [], waiting_opponent_response: [], waiting_opponent_play: [],
-  };
-  for (const c of visibleOpen) grouped[classifyChallenge(c, user.id)].push(c);
+  const ongoing = visibleOpen.filter((c) => {
+    const status = classifyChallenge(c, user.id);
+    return status === "your_turn" || status === "waiting_opponent_play";
+  });
+  const waitingToStart = visibleOpen.filter((c) => {
+    const status = classifyChallenge(c, user.id);
+    return status === "needs_response" || status === "waiting_opponent_response";
+  });
 
   return (
     <div style={styles.page}>
@@ -212,68 +245,30 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
             <div style={{ color: T.muted }}>Inga öppna utmaningar just nu.</div>
           )}
 
-          {grouped.needs_response.length > 0 && (
-            <Section title="Väntar på ditt svar">
-              {groupByOpponent(grouped.needs_response, user.id).map((g) => (
+          {ongoing.length > 0 && (
+            <Section title="PÅGÅENDE">
+              {groupByOpponent(ongoing, user.id).map((g) => (
                 <ChallengeGroup
                   key={g.opponentId}
                   opponentName={g.opponentName}
                   challenges={g.challenges}
-                  renderActions={(c) => (
-                    <>
-                      <button onClick={() => onRespond(c.id, true)} style={styles.smallButton}>Anta</button>
-                      <button onClick={() => onRespond(c.id, false)} style={styles.smallButtonMuted}>Ignorera</button>
-                      <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                    </>
-                  )}
+                  renderActions={(c) => ongoingActions(c, user.id, onPlay, onDelete)}
                 />
               ))}
             </Section>
           )}
 
-          {grouped.your_turn.length > 0 && (
-            <Section title="Din tur att spela">
-              {groupByOpponent(grouped.your_turn, user.id).map((g) => (
+          {waitingToStart.length > 0 && (
+            <Section
+              title="VÄNTANDE"
+              note={`En obesvarad utmaning tas bort automatiskt om den inte antas inom ${BLIXT_ACCEPT_DEADLINE_HOURS} timmar.`}
+            >
+              {groupByOpponent(waitingToStart, user.id).map((g) => (
                 <ChallengeGroup
                   key={g.opponentId}
                   opponentName={g.opponentName}
                   challenges={g.challenges}
-                  renderActions={(c) => (
-                    <>
-                      <button onClick={() => onPlay(c)} style={styles.smallButton}>Spela</button>
-                      <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                    </>
-                  )}
-                />
-              ))}
-            </Section>
-          )}
-
-          {grouped.waiting_opponent_response.length > 0 && (
-            <Section title="Väntar på svar">
-              {groupByOpponent(grouped.waiting_opponent_response, user.id).map((g) => (
-                <ChallengeGroup
-                  key={g.opponentId}
-                  opponentName={g.opponentName}
-                  challenges={g.challenges}
-                  renderActions={(c) => (
-                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                  )}
-                />
-              ))}
-            </Section>
-          )}
-
-          {grouped.waiting_opponent_play.length > 0 && (
-            <Section title="Väntar på motståndaren">
-              {groupByOpponent(grouped.waiting_opponent_play, user.id).map((g) => (
-                <ChallengeGroup
-                  key={g.opponentId}
-                  opponentName={g.opponentName}
-                  challenges={g.challenges}
-                  renderActions={(c) => (
-                    <button onClick={() => onDelete(c.id)} style={styles.smallButtonMuted}>Ta bort</button>
-                  )}
+                  renderActions={(c) => waitingActions(c, user.id, onRespond, onDelete)}
                 />
               ))}
             </Section>
@@ -336,7 +331,10 @@ const styles = {
   },
   tabButtonActive: { background: T.accent, borderColor: T.accent, color: "#121212" },
   section: { width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: "0.4rem" },
-  sectionTitle: { color: T.muted, fontSize: "0.8rem", fontWeight: 700, textAlign: "left" },
+  sectionTitle: {
+    color: T.accent, fontSize: "0.95rem", fontWeight: 800, letterSpacing: "0.04em", textAlign: "left",
+  },
+  sectionNote: { color: T.muted, fontSize: "0.75rem", textAlign: "left", marginTop: "-0.2rem" },
   list: { display: "flex", flexDirection: "column", gap: "0.5rem" },
   row: {
     display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0.75rem",

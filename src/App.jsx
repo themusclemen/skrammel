@@ -12,6 +12,7 @@ import { fetchRandomOpponent } from "./api/scores.js";
 import {
   pickBlixtWord, createChallenge, respondToChallenge, submitBlixtScore,
   fetchMyChallenges, classifyChallenge, deleteChallenge,
+  applyPendingExpirations as applyPendingBlixtExpirations,
 } from "./api/blixt.js";
 import {
   createChallenge as createSkrammelpajChallenge,
@@ -133,9 +134,15 @@ export default function App() {
     fetchUserStats(user.id).then(setUserStats);
   }, [user]);
 
-  const refreshBlixtChallenges = useCallback(() => {
-    if (!user) { setMyBlixtChallenges([]); return Promise.resolve(); }
-    return fetchMyChallenges(user.id).then(setMyBlixtChallenges);
+  // Hämtar mina Blixt-utmaningar och avgör i samma veva om någon obesvarad
+  // utmaning där jag är opponent sprungit ut på 24-timmarsgränsen
+  // (self-reported, se applyPendingExpirations — ingen cron finns i appen).
+  const refreshBlixtChallenges = useCallback(async () => {
+    if (!user) { setMyBlixtChallenges([]); return; }
+    let list = await fetchMyChallenges(user.id);
+    const expired = await applyPendingBlixtExpirations(list, user.id);
+    if (expired) list = await fetchMyChallenges(user.id);
+    setMyBlixtChallenges(list);
   }, [user]);
 
   useEffect(() => { refreshBlixtChallenges(); }, [refreshBlixtChallenges]);

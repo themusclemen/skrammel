@@ -6,6 +6,7 @@ import {
   BLIXT_WORD_LENGTH,
   BLIXT_MIN_FINDABLE,
   BLIXT_MAX_FINDABLE,
+  BLIXT_ACCEPT_DEADLINE_HOURS,
 } from "../game/blixtConstants.js";
 
 // Slumpar bland admin-godkända ord (se /admin/blixt, src/api/blixtWords.js)
@@ -98,6 +99,35 @@ export async function deleteChallenge(challengeId) {
   if (!isSupabaseConfigured) return;
   const { error } = await supabase.from("blixt_challenges").delete().eq("id", challengeId);
   if (error) throw error;
+}
+
+// Samma lata, self-reporterade mönster som Skrammelpajs
+// applyPendingExpirations — men filtrerad till bara de rader där JAG är
+// opponent: uppdateringspolicyn för blixt_challenges tillåter bara
+// opponenten att skriva till raden (se "Opponent can respond to or
+// complete their challenge" i supabase/schema.sql), till skillnad från
+// Skrammelpaj där båda deltagarna kan svara. En obesvarad utmaning
+// försvinner alltså bara när OPPONENTENS egen klient råkar ha listan öppen
+// efter fristen, inte creatorns.
+export async function applyPendingExpirations(challenges, userId) {
+  const deadlineMs = BLIXT_ACCEPT_DEADLINE_HOURS * 60 * 60 * 1000;
+  const now = Date.now();
+  const stale = challenges.filter(
+    (c) =>
+      c.status === "pending" &&
+      c.opponent_id === userId &&
+      now - new Date(c.created_at).getTime() > deadlineMs
+  );
+
+  for (const c of stale) {
+    try {
+      await respondToChallenge(c.id, false);
+    } catch {
+      // En annan flik hann redan markera den — inget att göra, nästa
+      // hämtning ser rätt status.
+    }
+  }
+  return stale.length > 0;
 }
 
 // "needs_response": jag är opponent, pending — måste anta/ignorera.
