@@ -684,3 +684,58 @@ Ej manuellt testat i webbläsare än.
   Kräver att den ursprungliga `letters`-strängen (`poolLetters`-prop) skickas
   in till `SkrammelpajGameScreen` av båda anroparna (App.jsx för async,
   `SkrammelpajCpuScreen.jsx` för CPU-läget).
+
+**CPU-startknappen kändes trög (2026-07-21):** `generateSkrammelpajPool`
+körs synkront i `SkrammelpajCpuScreen`s första render (upp till 20 varv
+över hela 70k-ordslistan) och blockerade huvudtråden innan något hann
+målas upp. `SkrammelpajChooseOpponentScreen.jsx`s CPU-knapp visar nu
+"Startar…" omedelbart, och navigeringen (som triggar den tunga
+beräkningen) skjuts upp ett tick (`setTimeout(fn, 0)`) så webbläsaren
+hinner måla texten först.
+
+## Hemskärmens navigering — omarbetad (2026-07-21)
+
+Efter att Skrammelpaj lanserats kändes hemskärmen överlastad (tre spel,
+upp till fyra separata notis-banners, fem länkar längst ner). Städat i
+flera omgångar samma dag:
+
+- **Alla tre spelen har nu samma mönster:** knapp på hemskärmen → en
+  `GameInfoScreen.jsx` (delad komponent, ny) som förklarar spelet och
+  ger ett tydligt Tillbaka/Starta-val, INNAN man committar till att
+  spela. Knapparna heter **"Dagens Skrammel"**, **"BlixtSkrammel"**,
+  **"SkrammelPaj"** (kortare labels; "Dagens Skrammel" testades kort
+  som bara "Skrammel" men ändrades tillbaka på användarens begäran).
+  - Blixts befintliga `GameIntroModal`-regelruta (visas precis innan
+    klockan startar) hoppas nu över (`skipIntro`-prop på `GameScreen`)
+    specifikt för flödet som går via hemskärmens infoskärm — annars
+    förklarades samma regler två gånger i rad. Gäller INTE när man
+    spelar via Blixt-hubbens egna "Spela en blixt"-knapp eller "Utmana"
+    på topplistan, där `GameIntroModal` fortfarande är den enda
+    förklaringen.
+  - Skrammels infoskärm visar dynamiskt om dagens ord redan är spelat
+    (`playedToday`, härlett från `userStats.playedDates`) och byter
+    "Starta"-knappens text till "Spela igen" i så fall — ersätter den
+    gamla reaktiva `ReplayConfirmModal`-bekräftelsen som bara dök upp
+    EFTER klick (`handlePlayToday` borttagen ur App.jsx; `ArchiveScreen`
+    har fortfarande sin egen, separata `ReplayConfirmModal` för
+    historiska datum, orörd).
+  - `GameInfoScreen` stödjer en valfri `secondaryAction`-knapp under
+    huvudvalet: Skrammels infoskärm får "📅 Kalender" (till arkivet),
+    Blixt/Skrammelpaj får "📋 Mina matcher" (till respektive hub) —
+    behövdes eftersom de gamla direktlänkarna till hubbarna togs bort
+    (se nedan).
+- **De fyra separata notis-banners slogs ihop till EN per spel:**
+  "väntar"-läget vinner över "uppdaterad" om båda är sanna, istället för
+  att visa båda samtidigt.
+- **Länkraden längst ner gick från fem länkar till två:** "Topplistor"
+  och "Vänner". Ny `TopplistorScreen.jsx` — inget försök att slå ihop de
+  tre topplistorna (poäng vs. vunna dueller är olika mått) till en enda
+  tabell, bara en förklarande väljarskärm som länkar vidare till vart
+  och ett av spelens redan byggda topplisteskärmar
+  (`LeaderboardScreen`/`BlixtLeaderboardScreen`/
+  `SkrammelpajLeaderboardScreen`, oförändrade). De tre topplisteskärmarnas
+  egna "Tillbaka"-knappar pekar fortfarande mot respektive spels hubb
+  (inte Topplistor-väljaren) — ingen navigeringshistorik finns i appen
+  (bara en `screen`-sträng i App.jsx), så "tillbaka" landar inte alltid
+  exakt där man kom ifrån. Medvetet accepterad begränsning, inte byggd
+  om till en riktig historik-stack.

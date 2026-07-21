@@ -74,9 +74,39 @@ bilda av bokstäverna i källordet, inom 5 minuter.
 - **Blixt-topplista:** Global/vän-flikar, rankar efter flest vunna
   matcher totalt (ny `security definer`-SQL-funktion
   `blixt_leaderboard()`, kringgår RLS men exponerar bara summerade
-  siffror). Nåbar via en "Topplista"-knapp i Blixt-huben. Man kan
+  siffror). Nåbar via en "Topplista"-knapp i Blixt-huben, och sen
+  2026-07-21 även via hemskärmens "Topplistor"-väljare. Man kan
   utmana vem som helst på listan direkt, oavsett vänskap. Byggd
   2026-07-21.
+- **SkrammelPaj:** ett tredje spel, async 1-mot-1 precis som Blixt men
+  med en helt annan mekanik — två spelare turas om att bilda ord ur en
+  **delad, krympande** bokstavspool (4 slumpade ord, 20-25 bokstäver,
+  blandade) istället för att spela parallella oberoende rundor mot
+  samma källord. Bokstäver försvinner permanent ur poolen när de
+  används; den som inte hittar ett ord inom 2 minuter — eller inte kan
+  hitta något alls när poolen tar slut — förlorar. Mottagaren (inte
+  utmanaren) spelar första draget vid accept. Utöver den aktiva
+  2-minutersklockan finns en 72-timmars gräns för att svara på sin tur
+  överhuvudtaget, annars förloras matchen genom övergivande — kollas
+  lat av vem som helst av deltagarna som råkar ha matchlistan öppen,
+  ingen cron finns. Man får alltid försöka hitta ett ord på sin tur,
+  även om det (matematiskt) är omöjligt givet vad som är kvar — bara en
+  helt tom pool avgör en tur automatiskt. Bokstavsgridden visar hela
+  den ursprungliga poolen hela matchen, med redan använda bokstäver
+  gråtonade istället för dolda. Kan även spelas mot **CPU** (en bot som
+  väljer slumpmässigt bland formbara ord, med en märkbar "tänker"-paus
+  och ordet avslöjat bokstav för bokstav) — CPU-matcher är helt lokala,
+  ingen databaspost skapas, räknas alltså aldrig till topplistan. Egen
+  topplista (`skrammelpaj_leaderboard()`), samma global/vän-mönster som
+  Blixt. Byggd och applicerad mot `skrammel-beta` 2026-07-21, se
+  `architecture.md` för fullständig historik och efterföljande
+  UX-fixar.
+- **Hemskärmens navigering omarbetad (2026-07-21):** alla tre spelen
+  (Dagens Skrammel, BlixtSkrammel, SkrammelPaj) går nu via en delad
+  `GameInfoScreen` (regler + Tillbaka/Starta) innan man committar till
+  att spela. Länkraden längst ner gick från fem länkar till två:
+  **Topplistor** (ny väljarskärm som länkar till vart och ett av de tre
+  spelens topplistor) och **Vänner**.
 
 ## Öppna frågor (ej beslutade än)
 
