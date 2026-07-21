@@ -233,6 +233,12 @@ export default function App() {
     () => bestLevelReached(userStats.levelTimesList),
     [userStats.levelTimesList]
   );
+  // Styr blinket på "Dagens Skrammel"-knappen på hemskärmen — okänt (gäst)
+  // räknas som "inte spelat" så knappen fortsätter blinka och uppmana till inloggning.
+  const playedToday = useMemo(
+    () => userStats.playedDates.includes(todayStr()),
+    [userStats.playedDates]
+  );
 
   const navigate = useCallback((next) => setScreen(next), []);
 
@@ -810,6 +816,7 @@ export default function App() {
         displayName={displayName}
         streak={streak}
         bestLevel={bestLevel}
+        playedToday={playedToday}
         pendingBlixtCount={pendingBlixtCount}
         blixtUpdatesCount={blixtUpdatesCount}
         pendingSkrammelpajCount={pendingSkrammelpajCount}

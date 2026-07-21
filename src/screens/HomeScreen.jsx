@@ -1,10 +1,24 @@
 import { T } from "../theme.js";
 
 export default function HomeScreen({
-  user, displayName, streak, bestLevel,
+  user, displayName, streak, bestLevel, playedToday = false,
   pendingBlixtCount = 0, blixtUpdatesCount = 0, pendingSkrammelpajCount = 0, skrammelpajUpdatesCount = 0,
   onPlay, onPlayBlixt, onPlaySkrammelpaj, onArchive, onLeaderboard, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
+  // Slår ihop "väntar på dig"/"uppdaterad" till EN banner per spel (väntar
+  // vinner om båda är sanna) — fyra separata banners kändes för mycket
+  // information på en gång.
+  const blixtBannerText = pendingBlixtCount > 0
+    ? `⚡ ${pendingBlixtCount} blixtutmaning${pendingBlixtCount > 1 ? "ar" : ""} väntar!`
+    : blixtUpdatesCount > 0
+    ? `🔔 ${blixtUpdatesCount} blixtmatch${blixtUpdatesCount > 1 ? "er" : ""} uppdaterad${blixtUpdatesCount > 1 ? "e" : ""}`
+    : null;
+  const skrammelpajBannerText = pendingSkrammelpajCount > 0
+    ? `🥧 ${pendingSkrammelpajCount} skrammelpaj${pendingSkrammelpajCount > 1 ? "-matcher" : "-match"} väntar!`
+    : skrammelpajUpdatesCount > 0
+    ? `🔔 ${skrammelpajUpdatesCount} skrammelpaj-match${skrammelpajUpdatesCount > 1 ? "er" : ""} uppdaterad${skrammelpajUpdatesCount > 1 ? "e" : ""}`
+    : null;
+
   return (
     <div style={styles.page}>
       <style>{`
@@ -19,7 +33,7 @@ export default function HomeScreen({
         <h1 style={styles.title}>SKRAMMEL</h1>
         <span style={styles.sparkle}>✨</span>
       </div>
-      <p style={styles.subtitle}>Hitta så många ord du kan på 5 minuter.</p>
+      <p style={styles.subtitle}>Hitta orden i ordet!</p>
 
       {user && (streak > 0 || bestLevel) && (
         <div style={styles.statsRow}>
@@ -28,41 +42,31 @@ export default function HomeScreen({
         </div>
       )}
 
-      {user && pendingBlixtCount > 0 && (
-        <button onClick={onGoToBlixt} style={styles.blixtBanner}>
-          ⚡ {pendingBlixtCount} blixtutmaning{pendingBlixtCount > 1 ? "ar" : ""} väntar!
+      {user && blixtBannerText && (
+        <button onClick={onGoToBlixt} style={pendingBlixtCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}>
+          {blixtBannerText}
         </button>
       )}
 
-      {user && blixtUpdatesCount > 0 && (
-        <button onClick={onGoToBlixt} style={styles.blixtUpdateBanner}>
-          🔔 {blixtUpdatesCount} blixtmatch{blixtUpdatesCount > 1 ? "er" : ""} uppdaterad{blixtUpdatesCount > 1 ? "e" : ""}
-        </button>
-      )}
-
-      {user && pendingSkrammelpajCount > 0 && (
-        <button onClick={onGoToSkrammelpaj} style={styles.blixtBanner}>
-          🥧 {pendingSkrammelpajCount} skrammelpaj{pendingSkrammelpajCount > 1 ? "-matcher" : "-match"} väntar!
-        </button>
-      )}
-
-      {user && skrammelpajUpdatesCount > 0 && (
-        <button onClick={onGoToSkrammelpaj} style={styles.blixtUpdateBanner}>
-          🔔 {skrammelpajUpdatesCount} skrammelpaj-match{skrammelpajUpdatesCount > 1 ? "er" : ""} uppdaterad{skrammelpajUpdatesCount > 1 ? "e" : ""}
+      {user && skrammelpajBannerText && (
+        <button onClick={onGoToSkrammelpaj} style={pendingSkrammelpajCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}>
+          {skrammelpajBannerText}
         </button>
       )}
 
       <div style={styles.playButtonBorder}>
-        <button onClick={onPlay} style={styles.playButton}>Spela dagens skrammel</button>
+        <button onClick={onPlay} style={{ ...styles.playButton, animation: playedToday ? "none" : "skrammelBlink 1.2s steps(1, end) infinite" }}>
+          Dagens Skrammel
+        </button>
       </div>
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlayBlixt} style={styles.playButton}>Spela blixt-skrammel mot en vän</button>
+          <button onClick={onPlayBlixt} style={styles.playButton}>Spela BlixtSkrammel mot en vän</button>
         </div>
       )}
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlaySkrammelpaj} style={styles.playButton}>Spela Skrammelpaj (Beta)</button>
+          <button onClick={onPlaySkrammelpaj} style={styles.playButton}>Spela SkrammelPaj mot vän eller CPU</button>
         </div>
       )}
       <div style={styles.secondaryRow}>
