@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from "../supabase.js";
 import { buildCandidatePool, suggestSourceWord } from "../game/adminSuggest.js";
 import { fetchApprovedBlixtWords } from "./blixtWords.js";
+import { fetchFriends } from "./friends.js";
 import {
   BLIXT_WORD_LENGTH,
   BLIXT_MIN_FINDABLE,
@@ -178,6 +179,26 @@ export function computeChallengeStats(challenges, userId) {
   }
 
   return [...byOpponent.values()].sort((a, b) => b.wins - a.wins);
+}
+
+// Global topplista, rankad efter flest vunna Blixt-matcher totalt (se
+// blixt_leaderboard() i supabase/schema.sql för hur aggregeringen kringgår
+// RLS utan att läcka enskilda matchresultat).
+export async function fetchBlixtLeaderboard() {
+  if (!isSupabaseConfigured) return [];
+  const { data, error } = await supabase.rpc("blixt_leaderboard");
+  if (error) throw error;
+  return (data ?? []).sort((a, b) => b.wins - a.wins || b.matches_played - a.matches_played);
+}
+
+// Samma rankning, men bara spelaren själv + vänner — filtreras client-side
+// eftersom blixt_leaderboard() alltid returnerar alla spelare (samma
+// aggregerade siffror alla redan kan se globalt).
+export async function fetchFriendsBlixtLeaderboard(userId) {
+  if (!isSupabaseConfigured) return [];
+  const [all, friends] = await Promise.all([fetchBlixtLeaderboard(), fetchFriends(userId)]);
+  const ids = new Set([userId, ...friends.map((f) => f.friendId)]);
+  return all.filter((row) => ids.has(row.user_id));
 }
 
 // Räknar rader med status pending/accepted där jag är part. Denna

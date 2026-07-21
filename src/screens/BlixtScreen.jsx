@@ -171,7 +171,7 @@ function TabButton({ active, onClick, children }) {
   );
 }
 
-export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPlayNew, onDelete, onBack }) {
+export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPlayNew, onDelete, onLeaderboard, onBack }) {
   const [tab, setTab] = useState("open");
 
   const openCount = openChallengeCount(challenges, user.id);
@@ -312,6 +312,7 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
       )}
 
       <div style={styles.navRow}>
+        <button onClick={onLeaderboard} style={styles.navButton}>Topplista</button>
         <button onClick={onBack} style={styles.navButton}>Till start</button>
       </div>
     </div>

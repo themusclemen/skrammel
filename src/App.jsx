@@ -26,6 +26,7 @@ import FriendsScreen from "./screens/FriendsScreen.jsx";
 import BlixtScreen from "./screens/BlixtScreen.jsx";
 import BlixtChooseOpponentScreen from "./screens/BlixtChooseOpponentScreen.jsx";
 import BlixtResultScreen from "./screens/BlixtResultScreen.jsx";
+import BlixtLeaderboardScreen from "./screens/BlixtLeaderboardScreen.jsx";
 import ReplayConfirmModal from "./components/ReplayConfirmModal.jsx";
 import FriendInviteModal from "./components/FriendInviteModal.jsx";
 
@@ -68,6 +69,11 @@ export default function App() {
   // utmaning / opponentens resultat efteråt.
   const [blixtSourceWord, setBlixtSourceWord] = useState(null);
   const [blixtDraftResult, setBlixtDraftResult] = useState(null); // { score, words, sourceWord }
+  // Satt när en blixt-runda startats för att utmana en specifik spelare
+  // direkt (t.ex. via "Utmana" på topplistan, se BlixtLeaderboardScreen) —
+  // förifyller den valda motståndaren på blixt-choose-skärmen istället för
+  // att spelaren måste hitta samma person i vän-/slumplistan igen.
+  const [blixtPresetOpponent, setBlixtPresetOpponent] = useState(null); // { id, name }
   const [activeBlixtChallenge, setActiveBlixtChallenge] = useState(null);
   const [blixtResult, setBlixtResult] = useState(null); // { myScore, myWords, opponentScore, opponentName }
   const [myBlixtChallenges, setMyBlixtChallenges] = useState([]);
@@ -233,6 +239,17 @@ export default function App() {
   }, [clearInviteUrl]);
 
   const handlePlayBlixt = useCallback(async () => {
+    setBlixtPresetOpponent(null);
+    const word = await pickBlixtWord(getDictionary());
+    setBlixtSourceWord(word);
+    setScreen("blixt-play");
+  }, []);
+
+  // Utmana direkt från topplistan (global eller vänner, se
+  // BlixtLeaderboardScreen) — samma flöde som "Spela en blixt", men
+  // motståndaren är redan vald när blixt-choose-skärmen visas efteråt.
+  const handleChallengeFromLeaderboard = useCallback(async (opponentId, opponentName) => {
+    setBlixtPresetOpponent({ id: opponentId, name: opponentName });
     const word = await pickBlixtWord(getDictionary());
     setBlixtSourceWord(word);
     setScreen("blixt-play");
@@ -252,6 +269,7 @@ export default function App() {
     );
     await refreshBlixtChallenges();
     setBlixtDraftResult(null);
+    setBlixtPresetOpponent(null);
     setScreen("blixt-hub");
   }, [user, displayName, blixtDraftResult, refreshBlixtChallenges]);
 
@@ -275,6 +293,7 @@ export default function App() {
         );
         await refreshBlixtChallenges();
         setBlixtDraftResult(null);
+        setBlixtPresetOpponent(null);
         setScreen("blixt-hub");
         return;
       } catch {
@@ -286,6 +305,7 @@ export default function App() {
 
   const handleSkipBlixtChallenge = useCallback(() => {
     setBlixtDraftResult(null);
+    setBlixtPresetOpponent(null);
     setScreen("blixt-hub");
   }, []);
 
@@ -325,6 +345,10 @@ export default function App() {
     await refreshBlixtChallenges();
     setScreen("blixt-hub");
   }, [refreshBlixtChallenges]);
+
+  const goToBlixtLeaderboard = useCallback(() => {
+    setScreen("blixt-leaderboard");
+  }, []);
 
   if (user === undefined || !wordListReady) {
     return (
@@ -386,6 +410,7 @@ export default function App() {
       <BlixtChooseOpponentScreen
         user={user}
         draftResult={blixtDraftResult}
+        presetOpponent={blixtPresetOpponent}
         onChallengeFriend={handleChallengeFriend}
         onChallengeRandom={handleChallengeRandom}
         onSkip={handleSkipBlixtChallenge}
@@ -402,9 +427,14 @@ export default function App() {
         onPlay={handlePlayAcceptedChallenge}
         onPlayNew={handlePlayBlixt}
         onDelete={handleDeleteChallenge}
+        onLeaderboard={goToBlixtLeaderboard}
         onBack={() => navigate("home")}
       />
     );
+  }
+
+  if (screen === "blixt-leaderboard") {
+    return <BlixtLeaderboardScreen user={user} onBack={goToBlixt} onChallenge={handleChallengeFromLeaderboard} />;
   }
 
   if (screen === "blixt-respond-play" && activeBlixtChallenge) {

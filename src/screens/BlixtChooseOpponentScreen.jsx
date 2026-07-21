@@ -7,9 +7,11 @@ import { fetchFriends } from "../api/friends.js";
 // onChallengeRandom gör själva skapandet (App.jsx) och kan avvisas av RLS
 // (mottagarens 20-tak nått) — den här skärmen visar bara fel och tillåter
 // nya försök.
-export default function BlixtChooseOpponentScreen({ user, draftResult, onChallengeFriend, onChallengeRandom, onSkip }) {
+export default function BlixtChooseOpponentScreen({
+  user, draftResult, presetOpponent, onChallengeFriend, onChallengeRandom, onSkip,
+}) {
   const [friends, setFriends] = useState(null);
-  const [busyId, setBusyId] = useState(null); // "random" eller ett friendId
+  const [busyId, setBusyId] = useState(null); // "random", "preset" eller ett friendId
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -40,6 +42,18 @@ export default function BlixtChooseOpponentScreen({ user, draftResult, onChallen
     }
   };
 
+  const handlePreset = async () => {
+    setBusyId("preset");
+    setError(null);
+    try {
+      await onChallengeFriend(presetOpponent.id, presetOpponent.name);
+    } catch {
+      setError(`${presetOpponent.name} har redan för många pågående matcher.`);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>⚡ Blixt spelad!</h2>
@@ -48,6 +62,12 @@ export default function BlixtChooseOpponentScreen({ user, draftResult, onChallen
       <div style={{ color: T.muted, fontSize: "0.9rem" }}>Vem vill du utmana med det här resultatet?</div>
 
       {error && <div style={styles.error}>{error}</div>}
+
+      {presetOpponent && (
+        <button onClick={handlePreset} disabled={busyId !== null} style={styles.presetButton}>
+          {busyId === "preset" ? "Utmanar…" : `⚡ Utmana ${presetOpponent.name}`}
+        </button>
+      )}
 
       <button onClick={handleRandom} disabled={busyId !== null} style={styles.randomButton}>
         {busyId === "random" ? "Slumpar…" : "🎲 Slumpa motståndare"}
@@ -89,6 +109,10 @@ const styles = {
   },
   score: { fontSize: "2.2rem", fontWeight: 700, color: T.accent },
   error: { color: T.accent2, fontSize: "0.85rem" },
+  presetButton: {
+    padding: "0.8rem 1.2rem", borderRadius: 10, border: `2px solid ${T.accent}`,
+    background: "transparent", color: T.accent, fontWeight: 700, cursor: "pointer", width: "100%", maxWidth: 320,
+  },
   randomButton: {
     marginTop: "0.5rem", padding: "0.8rem 1.2rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, cursor: "pointer", width: "100%", maxWidth: 320,
