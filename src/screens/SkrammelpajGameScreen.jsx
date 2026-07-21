@@ -158,7 +158,7 @@ export default function SkrammelpajGameScreen({
   }, [isMyTurn, waiting, matchCompleted]);
 
   const handleTileTap = (i) => {
-    if (isDisabled(i)) return;
+    if (waiting || isDisabled(i)) return;
     setTappedIndices((prev) => [...prev, i]);
     setFeedback(null);
   };
@@ -242,39 +242,6 @@ export default function SkrammelpajGameScreen({
     );
   }
 
-  if (waiting) {
-    return (
-      <div style={styles.page}>
-        <div style={styles.titleRow}>
-          <span style={styles.sparkle}>🥧</span>
-          <h1 style={styles.title}>SKRAMMELPAJ</h1>
-          <span style={styles.sparkle}>🥧</span>
-        </div>
-
-        <div style={styles.waitingCard}>
-          {opponentMoved ? (
-            <>
-              <div style={styles.waitingTitle}>🔔 {opponentName ?? "Motståndaren"} har gjort sitt drag!</div>
-              <div style={styles.waitingSub}>Nu är det din tur igen.</div>
-              <button onClick={handleContinueMyTurn} style={styles.submitButtonWide}>Spela</button>
-            </>
-          ) : (
-            <>
-              <div style={styles.waitingTitle}>Du spelade &quot;{ownLastWord}&quot;</div>
-              <div style={styles.waitingSub}>Väntar på att {opponentName ?? "motståndaren"} gör sitt drag …</div>
-              <div style={styles.waitingDots}>⏳</div>
-            </>
-          )}
-        </div>
-
-        <div style={styles.navRow}>
-          <button onClick={onBack} style={styles.navButton}>Till mina matcher</button>
-          <button onClick={onHome} style={styles.navButton}>Till start</button>
-        </div>
-      </div>
-    );
-  }
-
   if (poolEmpty) {
     return <div style={styles.page} />;
   }
@@ -286,6 +253,10 @@ export default function SkrammelpajGameScreen({
     ? `Din tur mot ${opponentName}! Bilda ett ord av kvarvarande bokstäver innan tiden går ut, annars förlorar du.`
     : "Bilda ett ord av kvarvarande bokstäver innan tiden går ut, annars förlorar du.";
 
+  // Väntar-läget ersätter INTE brädet — spelaren ska fortsätta se poolen
+  // och brickorna (uppdaterade med motståndarens senaste drag så fort
+  // pollningen hämtar det), bara utan att kunna trycka på dem förrän det
+  // är deras tur igen.
   return (
     <div style={styles.page}>
       <div style={styles.titleRow}>
@@ -295,14 +266,23 @@ export default function SkrammelpajGameScreen({
       </div>
 
       <div style={styles.statusCard}>
-        <span style={styles.statusIcon}>⏱</span>
-        <span style={{ ...styles.statusValue, color: isLowTime ? T.accent2 : T.text }}>
-          {minutes}:{seconds}
+        <span style={styles.statusIcon}>{waiting ? (opponentMoved ? "🔔" : "⏳") : "⏱"}</span>
+        <span style={{ ...styles.statusValue, color: !waiting && isLowTime ? T.accent2 : T.text }}>
+          {waiting ? (opponentMoved ? "Din tur!" : "Väntar…") : `${minutes}:${seconds}`}
         </span>
       </div>
 
+      {opponentMoved && (
+        <div style={styles.opponentMovedBanner}>
+          <span>{opponentName ?? "Motståndaren"} har gjort sitt drag!</span>
+          <button onClick={handleContinueMyTurn} style={styles.opponentMovedButton}>Spela</button>
+        </div>
+      )}
+
       <div style={styles.guessCenter}>
-        {tappedIndices.length === 0 ? (
+        {waiting ? (
+          <div style={styles.waitingWord}>Du spelade &quot;{ownLastWord}&quot;</div>
+        ) : tappedIndices.length === 0 ? (
           <span style={styles.cursor}>_</span>
         ) : (
           <div style={styles.guessRow}>
@@ -324,12 +304,13 @@ export default function SkrammelpajGameScreen({
               <button
                 key={i}
                 onClick={() => handleTileTap(i)}
-                disabled={consumed || tapped}
+                disabled={consumed || tapped || waiting}
                 title={consumed ? "Redan använd" : undefined}
                 style={{
                   ...styles.tile,
                   ...(consumed ? styles.tileConsumed : null),
                   ...(tapped ? styles.tileTapped : null),
+                  ...(waiting ? styles.tileWaiting : null),
                 }}
               >
                 {tapped ? "" : letter}
@@ -340,28 +321,37 @@ export default function SkrammelpajGameScreen({
 
         <div style={styles.controlsRow}>
           <button onClick={() => setShowMenu(true)} style={styles.iconButton} aria-label="Meny">…</button>
-          <button
-            onClick={handleClearAll}
-            disabled={tappedIndices.length === 0}
-            style={{ ...styles.clearAllButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
-          >
-            RENSA
-          </button>
-          <button
-            onClick={handleBackspace}
-            disabled={tappedIndices.length === 0}
-            style={{ ...styles.iconButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
-            aria-label="Ta bort sista bokstaven"
-          >
-            ←
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={tappedIndices.length === 0}
-            style={{ ...styles.submitButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
-          >
-            OK
-          </button>
+          {waiting ? (
+            <>
+              <button onClick={onBack} style={styles.clearAllButton}>Till mina matcher</button>
+              <button onClick={onHome} style={styles.clearAllButton}>Till start</button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleClearAll}
+                disabled={tappedIndices.length === 0}
+                style={{ ...styles.clearAllButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
+              >
+                RENSA
+              </button>
+              <button
+                onClick={handleBackspace}
+                disabled={tappedIndices.length === 0}
+                style={{ ...styles.iconButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
+                aria-label="Ta bort sista bokstaven"
+              >
+                ←
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={tappedIndices.length === 0}
+                style={{ ...styles.submitButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
+              >
+                OK
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -441,23 +431,15 @@ const styles = {
     flex: 1, height: "2.8rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
   },
-  waitingCard: {
-    flex: 1, width: "100%", maxWidth: 400, display: "flex", flexDirection: "column",
-    alignItems: "center", justifyContent: "center", gap: "0.8rem", textAlign: "center",
-    background: T.surface, border: `1px solid ${T.border}`, borderRadius: 16,
-    padding: "2rem 1.4rem", margin: "0.5rem 0",
+  waitingWord: { fontSize: "1.3rem", fontWeight: 700, color: T.text },
+  tileWaiting: { opacity: 0.6, cursor: "default" },
+  opponentMovedBanner: {
+    display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.6rem",
+    width: "100%", maxWidth: 480, background: T.surface, border: `1px solid ${T.accent}`,
+    borderRadius: 10, padding: "0.6rem 0.8rem", fontSize: "0.9rem", color: T.text,
   },
-  waitingTitle: { fontSize: "1.1rem", fontWeight: 700, color: T.text },
-  waitingSub: { fontSize: "0.9rem", color: T.muted },
-  waitingDots: { fontSize: "1.6rem" },
-  submitButtonWide: {
-    width: "100%", padding: "0.8rem", borderRadius: 10, border: "none",
-    background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1rem", cursor: "pointer",
-    marginTop: "0.3rem",
-  },
-  navRow: { display: "flex", gap: "0.6rem", flexWrap: "wrap", marginTop: "0.5rem", justifyContent: "center" },
-  navButton: {
-    padding: "0.7rem 1.2rem", borderRadius: 10, border: `1px solid ${T.border}`,
-    background: T.surface, color: T.text, fontSize: "0.9rem", cursor: "pointer",
+  opponentMovedButton: {
+    padding: "0.5rem 0.9rem", borderRadius: 8, border: "none", flexShrink: 0,
+    background: T.accent, color: "#121212", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer",
   },
 };
