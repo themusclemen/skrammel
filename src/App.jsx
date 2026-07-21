@@ -8,11 +8,24 @@ import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
 import { parseInviteFromLocation, confirmFriendship } from "./api/friends.js";
+import { fetchRandomOpponent } from "./api/scores.js";
 import {
   pickBlixtWord, createChallenge, respondToChallenge, submitBlixtScore,
-  fetchMyChallenges, fetchRandomOpponent, classifyChallenge, deleteChallenge,
+  fetchMyChallenges, classifyChallenge, deleteChallenge,
 } from "./api/blixt.js";
-import { loadSeenStatuses, saveSeenStatuses } from "./game/blixtSeen.js";
+import {
+  createChallenge as createSkrammelpajChallenge,
+  respondToChallenge as respondToSkrammelpajChallenge,
+  deleteChallenge as deleteSkrammelpajChallenge,
+  submitMove as submitSkrammelpajMove,
+  reportLoss as reportSkrammelpajLoss,
+  fetchMyChallenges as fetchMySkrammelpajChallenges,
+  classifyChallenge as classifySkrammelpajChallenge,
+  applyPendingForfeits as applyPendingSkrammelpajForfeits,
+  computeRemainingCounts as computeSkrammelpajRemainingCounts,
+} from "./api/skrammelpaj.js";
+import { generateSkrammelpajPool } from "./game/skrammelpajPool.js";
+import { loadSeenStatuses, saveSeenStatuses } from "./game/matchSeen.js";
 import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
@@ -27,8 +40,18 @@ import BlixtScreen from "./screens/BlixtScreen.jsx";
 import BlixtChooseOpponentScreen from "./screens/BlixtChooseOpponentScreen.jsx";
 import BlixtResultScreen from "./screens/BlixtResultScreen.jsx";
 import BlixtLeaderboardScreen from "./screens/BlixtLeaderboardScreen.jsx";
+import SkrammelpajScreen from "./screens/SkrammelpajScreen.jsx";
+import SkrammelpajChooseOpponentScreen from "./screens/SkrammelpajChooseOpponentScreen.jsx";
+import SkrammelpajGameScreen from "./screens/SkrammelpajGameScreen.jsx";
+import SkrammelpajCpuScreen from "./screens/SkrammelpajCpuScreen.jsx";
+import SkrammelpajResultScreen from "./screens/SkrammelpajResultScreen.jsx";
+import SkrammelpajLeaderboardScreen from "./screens/SkrammelpajLeaderboardScreen.jsx";
 import ReplayConfirmModal from "./components/ReplayConfirmModal.jsx";
 import FriendInviteModal from "./components/FriendInviteModal.jsx";
+
+// Prefix för matchSeen.js — skiljer de två spelens lokala "sedd status"-lagring åt.
+const BLIXT_SEEN_PREFIX = "skrammel_blixt_seen_";
+const SKRAMMELPAJ_SEEN_PREFIX = "skrammel_skrammelpaj_seen_";
 
 function pad(n) { return String(n).padStart(2, "0"); }
 
@@ -77,6 +100,13 @@ export default function App() {
   const [activeBlixtChallenge, setActiveBlixtChallenge] = useState(null);
   const [blixtResult, setBlixtResult] = useState(null); // { myScore, myWords, opponentScore, opponentName }
   const [myBlixtChallenges, setMyBlixtChallenges] = useState([]);
+  // Skrammelpaj (async 1-mot-1 bokstavspool-duell, se api/skrammelpaj.js):
+  // till skillnad från Blixt väljs motståndaren INNAN något skapas (ingen
+  // oberoende solorunda att spela i förväg — poolen är delad).
+  const [skrammelpajPresetOpponent, setSkrammelpajPresetOpponent] = useState(null); // { id, name }
+  const [activeSkrammelpajChallenge, setActiveSkrammelpajChallenge] = useState(null);
+  const [skrammelpajResult, setSkrammelpajResult] = useState(null); // { won, endReason, opponentName, moves }
+  const [mySkrammelpajChallenges, setMySkrammelpajChallenges] = useState([]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -115,13 +145,13 @@ export default function App() {
   }, [myBlixtChallenges, user]);
 
   // Räknar matcher som bytt status (t.ex. antagen eller klar) sen jag
-  // senast öppnade Blixt-huben — se game/blixtSeen.js. Bumpas för att
+  // senast öppnade Blixt-huben — se game/matchSeen.js. Bumpas för att
   // tvinga fram omräkning när huben markerar en ny bunt som sedd, eftersom
   // det bara skriver till localStorage och inte rör myBlixtChallenges.
   const [blixtSeenVersion, setBlixtSeenVersion] = useState(0);
   const blixtUpdatesCount = useMemo(() => {
     if (!user) return 0;
-    const seen = loadSeenStatuses(user.id);
+    const seen = loadSeenStatuses(BLIXT_SEEN_PREFIX, user.id);
     return myBlixtChallenges.filter((c) => {
       const status = classifyChallenge(c, user.id);
       // Redan täckt av pendingBlixtCount — ska inte dubbelräknas här.
@@ -135,9 +165,47 @@ export default function App() {
   // server-side läststatus.
   useEffect(() => {
     if (screen !== "blixt-hub" || !user) return;
-    saveSeenStatuses(user.id, myBlixtChallenges);
+    saveSeenStatuses(BLIXT_SEEN_PREFIX, user.id, myBlixtChallenges);
     setBlixtSeenVersion((v) => v + 1);
   }, [screen, user, myBlixtChallenges]);
+
+  // Hämtar mina Skrammelpaj-matcher, och avgör i samma veva om någon av dem
+  // sprungit ut på 72-timmarsgränsen (self-reported, se
+  // applyPendingForfeits — ingen cron finns i appen) — om något ändrades
+  // hämtas listan om en gång till för att få de uppdaterade raderna.
+  const refreshSkrammelpajChallenges = useCallback(async () => {
+    if (!user) { setMySkrammelpajChallenges([]); return; }
+    const list = await fetchMySkrammelpajChallenges(user.id);
+    const changed = await applyPendingSkrammelpajForfeits(list, user.id);
+    setMySkrammelpajChallenges(changed ? await fetchMySkrammelpajChallenges(user.id) : list);
+  }, [user]);
+
+  useEffect(() => { refreshSkrammelpajChallenges(); }, [refreshSkrammelpajChallenges]);
+
+  const pendingSkrammelpajCount = useMemo(() => {
+    if (!user) return 0;
+    return mySkrammelpajChallenges.filter((c) => {
+      const status = classifySkrammelpajChallenge(c, user.id);
+      return status === "needs_response" || status === "your_turn";
+    }).length;
+  }, [mySkrammelpajChallenges, user]);
+
+  const [skrammelpajSeenVersion, setSkrammelpajSeenVersion] = useState(0);
+  const skrammelpajUpdatesCount = useMemo(() => {
+    if (!user) return 0;
+    const seen = loadSeenStatuses(SKRAMMELPAJ_SEEN_PREFIX, user.id);
+    return mySkrammelpajChallenges.filter((c) => {
+      const status = classifySkrammelpajChallenge(c, user.id);
+      if (status === "needs_response" || status === "your_turn") return false;
+      return seen[c.id] !== c.status;
+    }).length;
+  }, [mySkrammelpajChallenges, user, skrammelpajSeenVersion]);
+
+  useEffect(() => {
+    if (screen !== "skrammelpaj-hub" || !user) return;
+    saveSeenStatuses(SKRAMMELPAJ_SEEN_PREFIX, user.id, mySkrammelpajChallenges);
+    setSkrammelpajSeenVersion((v) => v + 1);
+  }, [screen, user, mySkrammelpajChallenges]);
 
   const clearInviteUrl = useCallback(() => {
     if (window.location.pathname.startsWith("/friend/")) window.history.replaceState({}, "", "/");
@@ -350,6 +418,140 @@ export default function App() {
     setScreen("blixt-leaderboard");
   }, []);
 
+  const handleStartSkrammelpaj = useCallback(() => {
+    setSkrammelpajPresetOpponent(null);
+    setScreen("skrammelpaj-choose");
+  }, []);
+
+  // Utmana direkt från topplistan — samma mönster som Blixts motsvarighet.
+  const handleChallengeSkrammelpajFromLeaderboard = useCallback((opponentId, opponentName) => {
+    setSkrammelpajPresetOpponent({ id: opponentId, name: opponentName });
+    setScreen("skrammelpaj-choose");
+  }, []);
+
+  const handleChallengeSkrammelpajFriend = useCallback(async (opponentId, opponentName) => {
+    if (!user) return;
+    const name = displayName ?? user.email.split("@")[0];
+    const pool = generateSkrammelpajPool(getDictionary());
+    if (!pool) throw new Error("Kunde inte skapa en bra bokstavspool just nu, försök igen.");
+    await createSkrammelpajChallenge(user.id, name, opponentId, opponentName, pool.letters);
+    await refreshSkrammelpajChallenges();
+    setSkrammelpajPresetOpponent(null);
+    setScreen("skrammelpaj-hub");
+  }, [user, displayName, refreshSkrammelpajChallenges]);
+
+  // Slumpar en motståndare och försöker skapa utmaningen; om insert avvisas
+  // (mottagarens 20-tak nått) provas en ny kandidat, upp till 5 försök —
+  // samma mönster som Blixts handleChallengeRandom.
+  const handleChallengeSkrammelpajRandom = useCallback(async () => {
+    if (!user) return;
+    const name = displayName ?? user.email.split("@")[0];
+    const pool = generateSkrammelpajPool(getDictionary());
+    if (!pool) throw new Error("Kunde inte skapa en bra bokstavspool just nu, försök igen.");
+    const openOpponentIds = mySkrammelpajChallenges
+      .filter((c) => c.status === "pending" || c.status === "accepted")
+      .map((c) => (c.creator_id === user.id ? c.opponent_id : c.creator_id));
+    const excludeIds = [user.id, ...openOpponentIds];
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = await fetchRandomOpponent(user.id, excludeIds);
+      if (!candidate) break;
+      try {
+        await createSkrammelpajChallenge(user.id, name, candidate.opponentId, candidate.opponentName, pool.letters);
+        await refreshSkrammelpajChallenges();
+        setSkrammelpajPresetOpponent(null);
+        setScreen("skrammelpaj-hub");
+        return;
+      } catch {
+        excludeIds.push(candidate.opponentId);
+      }
+    }
+    throw new Error("Hittade ingen ledig motståndare just nu, försök igen senare.");
+  }, [user, displayName, mySkrammelpajChallenges, refreshSkrammelpajChallenges]);
+
+  const handlePlaySkrammelpajCpu = useCallback(() => {
+    setSkrammelpajPresetOpponent(null);
+    setScreen("skrammelpaj-cpu");
+  }, []);
+
+  const handleSkipSkrammelpajChallenge = useCallback(() => {
+    setSkrammelpajPresetOpponent(null);
+    setScreen("skrammelpaj-hub");
+  }, []);
+
+  const handleRespondToSkrammelpajChallenge = useCallback(async (challenge, accept) => {
+    await respondToSkrammelpajChallenge(challenge, accept);
+    await refreshSkrammelpajChallenges();
+  }, [refreshSkrammelpajChallenges]);
+
+  const handleDeleteSkrammelpajChallenge = useCallback(async (challengeId) => {
+    await deleteSkrammelpajChallenge(challengeId);
+    await refreshSkrammelpajChallenges();
+  }, [refreshSkrammelpajChallenges]);
+
+  const handlePlaySkrammelpajTurn = useCallback((challenge) => {
+    setActiveSkrammelpajChallenge(challenge);
+    setScreen("skrammelpaj-play");
+  }, []);
+
+  function skrammelpajOpponentNameFor(challenge, userId) {
+    return challenge.creator_id === userId ? challenge.opponent_display_name : challenge.creator_display_name;
+  }
+
+  // Lägger in draget; om matchen avgörs direkt (motståndarens pool tömd)
+  // visas resultatskärmen, annars går vi tillbaka till huben och väntar på
+  // motståndarens tur.
+  const handleSkrammelpajSubmitWord = useCallback(async (word) => {
+    if (!user || !activeSkrammelpajChallenge) return;
+    const name = displayName ?? user.email.split("@")[0];
+    const moves = activeSkrammelpajChallenge.skrammelpaj_moves ?? [];
+    const outcome = await submitSkrammelpajMove(activeSkrammelpajChallenge, moves, user.id, name, word, getDictionary());
+    const opponentName = skrammelpajOpponentNameFor(activeSkrammelpajChallenge, user.id);
+
+    if (outcome.completed) {
+      setSkrammelpajResult({
+        won: outcome.winnerId === user.id,
+        endReason: outcome.endReason,
+        opponentName,
+        moves: [...moves, { user_id: user.id, word }],
+      });
+      setActiveSkrammelpajChallenge(null);
+      await refreshSkrammelpajChallenges();
+      setScreen("skrammelpaj-result");
+      return;
+    }
+
+    setActiveSkrammelpajChallenge(null);
+    await refreshSkrammelpajChallenges();
+    setScreen("skrammelpaj-hub");
+  }, [user, displayName, activeSkrammelpajChallenge, refreshSkrammelpajChallenges]);
+
+  // Självrapporterat nederlag (tiden gick ut, poolen var redan omöjlig, eller
+  // spelaren gav upp via menyn) — samma slutdestination som en vinst:
+  // resultatskärmen, med den hittills spelade draghistoriken.
+  const handleSkrammelpajLoss = useCallback(async (endReason) => {
+    if (!user || !activeSkrammelpajChallenge) return;
+    await reportSkrammelpajLoss(activeSkrammelpajChallenge, user.id, endReason);
+    setSkrammelpajResult({
+      won: false,
+      endReason,
+      opponentName: skrammelpajOpponentNameFor(activeSkrammelpajChallenge, user.id),
+      moves: activeSkrammelpajChallenge.skrammelpaj_moves ?? [],
+    });
+    setActiveSkrammelpajChallenge(null);
+    await refreshSkrammelpajChallenges();
+    setScreen("skrammelpaj-result");
+  }, [user, activeSkrammelpajChallenge, refreshSkrammelpajChallenges]);
+
+  const goToSkrammelpaj = useCallback(async () => {
+    await refreshSkrammelpajChallenges();
+    setScreen("skrammelpaj-hub");
+  }, [refreshSkrammelpajChallenges]);
+
+  const goToSkrammelpajLeaderboard = useCallback(() => {
+    setScreen("skrammelpaj-leaderboard");
+  }, []);
+
   if (user === undefined || !wordListReady) {
     return (
       <div style={{
@@ -469,6 +671,82 @@ export default function App() {
     );
   }
 
+  if (screen === "skrammelpaj-choose" && user) {
+    return (
+      <SkrammelpajChooseOpponentScreen
+        user={user}
+        presetOpponent={skrammelpajPresetOpponent}
+        onChallengeFriend={handleChallengeSkrammelpajFriend}
+        onChallengeRandom={handleChallengeSkrammelpajRandom}
+        onPlayCpu={handlePlaySkrammelpajCpu}
+        onBack={handleSkipSkrammelpajChallenge}
+      />
+    );
+  }
+
+  if (screen === "skrammelpaj-cpu") {
+    return <SkrammelpajCpuScreen onHome={() => navigate("home")} />;
+  }
+
+  if (screen === "skrammelpaj-hub" && user) {
+    return (
+      <SkrammelpajScreen
+        user={user}
+        challenges={mySkrammelpajChallenges}
+        onRespond={handleRespondToSkrammelpajChallenge}
+        onPlay={handlePlaySkrammelpajTurn}
+        onPlayNew={handleStartSkrammelpaj}
+        onDelete={handleDeleteSkrammelpajChallenge}
+        onLeaderboard={goToSkrammelpajLeaderboard}
+        onBack={() => navigate("home")}
+      />
+    );
+  }
+
+  if (screen === "skrammelpaj-leaderboard") {
+    return (
+      <SkrammelpajLeaderboardScreen
+        user={user}
+        onBack={goToSkrammelpaj}
+        onChallenge={handleChallengeSkrammelpajFromLeaderboard}
+      />
+    );
+  }
+
+  if (screen === "skrammelpaj-play" && activeSkrammelpajChallenge && user) {
+    const opponentName = activeSkrammelpajChallenge.creator_id === user.id
+      ? activeSkrammelpajChallenge.opponent_display_name
+      : activeSkrammelpajChallenge.creator_display_name;
+    const remainingCounts = computeSkrammelpajRemainingCounts(
+      activeSkrammelpajChallenge, activeSkrammelpajChallenge.skrammelpaj_moves ?? []
+    );
+    return (
+      <SkrammelpajGameScreen
+        remainingCounts={remainingCounts}
+        opponentName={opponentName}
+        onSubmitWord={handleSkrammelpajSubmitWord}
+        onTimeout={() => handleSkrammelpajLoss("timeout")}
+        onGiveUp={() => handleSkrammelpajLoss("give_up")}
+        onImpossible={() => handleSkrammelpajLoss("no_words_left")}
+        onBack={() => navigate("skrammelpaj-hub")}
+      />
+    );
+  }
+
+  if (screen === "skrammelpaj-result" && skrammelpajResult && user) {
+    return (
+      <SkrammelpajResultScreen
+        won={skrammelpajResult.won}
+        endReason={skrammelpajResult.endReason}
+        opponentName={skrammelpajResult.opponentName}
+        moves={skrammelpajResult.moves}
+        userId={user.id}
+        onHome={() => navigate("home")}
+        onSkrammelpaj={goToSkrammelpaj}
+      />
+    );
+  }
+
   if (screen === "result" && lastResult) {
     return (
       <ResultScreen
@@ -534,12 +812,16 @@ export default function App() {
         bestLevel={bestLevel}
         pendingBlixtCount={pendingBlixtCount}
         blixtUpdatesCount={blixtUpdatesCount}
+        pendingSkrammelpajCount={pendingSkrammelpajCount}
+        skrammelpajUpdatesCount={skrammelpajUpdatesCount}
         onPlay={handlePlayToday}
         onPlayBlixt={handlePlayBlixt}
+        onPlaySkrammelpaj={handleStartSkrammelpaj}
         onArchive={openArchive}
         onLeaderboard={() => goToLeaderboard(todayStr())}
         onFriends={() => navigate("friends")}
         onGoToBlixt={goToBlixt}
+        onGoToSkrammelpaj={goToSkrammelpaj}
         onLogin={() => navigate("auth")}
         onSignOut={handleSignOut}
       />

@@ -132,29 +132,6 @@ export async function fetchMyChallenges(userId) {
   return data ?? [];
 }
 
-// scores (inte blixt_scores) är rätt källa — redan public-select och
-// innehåller alla som någonsin postat ett resultat på dagens ord.
-export async function fetchRandomOpponent(userId, excludeIds) {
-  if (!isSupabaseConfigured) return null;
-
-  const { data, error } = await supabase
-    .from("scores")
-    .select("user_id, display_name")
-    .neq("user_id", userId)
-    .limit(500);
-  if (error) throw error;
-
-  const excluded = new Set(excludeIds);
-  const byId = new Map();
-  for (const row of data ?? []) {
-    if (!excluded.has(row.user_id)) byId.set(row.user_id, row.display_name);
-  }
-  const candidates = [...byId.entries()];
-  if (candidates.length === 0) return null;
-  const [oppId, oppName] = candidates[Math.floor(Math.random() * candidates.length)];
-  return { opponentId: oppId, opponentName: oppName };
-}
-
 // Ren funktion: för varje completed-utmaning, jämför de två blixt_scores-
 // raderna och tillskriv vinst/förlust till rätt motståndare (lika = ingen
 // av delarna). Slår ihop vänner och slumpmotståndare i samma lista.

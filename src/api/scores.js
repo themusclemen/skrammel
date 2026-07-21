@@ -50,6 +50,31 @@ export async function fetchUserStats(userId) {
   };
 }
 
+// Delad mellan Blixt och Skrammelpaj — inte kopplad till någon spelspecifik
+// tabell, bara till "anyone who's ever posted a result" (scores, redan
+// public-select). excludeIds filtrerar bort spelare med redan öppna matcher
+// mot den utmanande spelaren, oavsett vilket av spelen som anropar.
+export async function fetchRandomOpponent(userId, excludeIds) {
+  if (!isSupabaseConfigured) return null;
+
+  const { data, error } = await supabase
+    .from("scores")
+    .select("user_id, display_name")
+    .neq("user_id", userId)
+    .limit(500);
+  if (error) throw error;
+
+  const excluded = new Set(excludeIds);
+  const byId = new Map();
+  for (const row of data ?? []) {
+    if (!excluded.has(row.user_id)) byId.set(row.user_id, row.display_name);
+  }
+  const candidates = [...byId.entries()];
+  if (candidates.length === 0) return null;
+  const [oppId, oppName] = candidates[Math.floor(Math.random() * candidates.length)];
+  return { opponentId: oppId, opponentName: oppName };
+}
+
 export async function fetchLeaderboard(date) {
   if (!isSupabaseConfigured) return [];
 

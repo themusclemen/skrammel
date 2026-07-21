@@ -17,3 +17,18 @@ export function findWordsInSource(sourceWord, dictionary) {
 
   return found.sort((a, b) => b.length - a.length || a.localeCompare(b, "sv"));
 }
+
+// Samma multiset-matchning som findWordsInSource, men mot ett bokstavs-antal
+// (counts) direkt istället för en källordssträng — för lägen där poolen inte
+// är ett riktigt ord i sig (t.ex. Skrammelpajs hopblandade flerordspool).
+export function findWordsFromCounts(counts, dictionary) {
+  const maxLength = Object.values(counts).reduce((sum, n) => sum + Math.max(n, 0), 0);
+  const found = [];
+
+  for (const word of dictionary) {
+    if (word.length < MIN_WORD_LENGTH || word.length > maxLength) continue;
+    if (canFormWord(word, counts)) found.push(word);
+  }
+
+  return found.sort((a, b) => b.length - a.length || a.localeCompare(b, "sv"));
+}

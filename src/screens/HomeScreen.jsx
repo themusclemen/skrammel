@@ -1,6 +1,10 @@
 import { T } from "../theme.js";
 
-export default function HomeScreen({ user, displayName, streak, bestLevel, pendingBlixtCount = 0, blixtUpdatesCount = 0, onPlay, onPlayBlixt, onArchive, onLeaderboard, onFriends, onGoToBlixt, onLogin, onSignOut }) {
+export default function HomeScreen({
+  user, displayName, streak, bestLevel,
+  pendingBlixtCount = 0, blixtUpdatesCount = 0, pendingSkrammelpajCount = 0, skrammelpajUpdatesCount = 0,
+  onPlay, onPlayBlixt, onPlaySkrammelpaj, onArchive, onLeaderboard, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
+}) {
   return (
     <div style={styles.page}>
       <style>{`
@@ -36,6 +40,18 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, pendi
         </button>
       )}
 
+      {user && pendingSkrammelpajCount > 0 && (
+        <button onClick={onGoToSkrammelpaj} style={styles.blixtBanner}>
+          🥧 {pendingSkrammelpajCount} skrammelpaj{pendingSkrammelpajCount > 1 ? "-matcher" : "-match"} väntar!
+        </button>
+      )}
+
+      {user && skrammelpajUpdatesCount > 0 && (
+        <button onClick={onGoToSkrammelpaj} style={styles.blixtUpdateBanner}>
+          🔔 {skrammelpajUpdatesCount} skrammelpaj-match{skrammelpajUpdatesCount > 1 ? "er" : ""} uppdaterad{skrammelpajUpdatesCount > 1 ? "e" : ""}
+        </button>
+      )}
+
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={styles.playButton}>Spela dagens skrammel</button>
       </div>
@@ -44,10 +60,16 @@ export default function HomeScreen({ user, displayName, streak, bestLevel, pendi
           <button onClick={onPlayBlixt} style={styles.playButton}>Spela blixt-skrammel mot en vän</button>
         </div>
       )}
+      {user && (
+        <div style={styles.playButtonBorder}>
+          <button onClick={onPlaySkrammelpaj} style={styles.playButton}>Spela Skrammelpaj (Beta)</button>
+        </div>
+      )}
       <div style={styles.secondaryRow}>
         <button onClick={onArchive} style={styles.secondaryButton}>Tidigare Dagens Skrammel</button>
         <button onClick={onLeaderboard} style={styles.secondaryButton}>Topplista för Dagens Skrammel</button>
         {user && <button onClick={onGoToBlixt} style={styles.secondaryButton}>Blixt-sida</button>}
+        {user && <button onClick={onGoToSkrammelpaj} style={styles.secondaryButton}>Skrammelpaj-sida</button>}
         {user && <button onClick={onFriends} style={styles.secondaryButton}>Vänner</button>}
       </div>
 

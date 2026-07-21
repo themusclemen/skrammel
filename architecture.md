@@ -597,3 +597,61 @@ prototyp-användning men bör lösas innan butiksinlämning:** inga
 app-ikoner/splash-assets finns än (`public/` har bara `ordlista.txt`),
 ingen integritetspolicy skriven, kvarvarande testkonton i produktions-
 Supabase, ingen crash-/felrapportering.
+
+## Skrammelpaj — byggt (2026-07-21)
+
+Ett andra 1-mot-1-spel, separat från både dagens ord och Blixt: två
+spelare turas om att bilda ord ur en **delad, krympande** bokstavspool
+(4 slumpade ord, 20-25 bokstäver, blandade — se
+`src/game/skrammelpajPool.js`). Bokstäver förbrukas permanent när de
+används. Den som inte hittar ett ord inom **2 minuter** (klient-sidig
+klocka, startar när spelaren öppnar sin tur — som Blixt) eller inte
+kan hitta något alls när poolen tar slut, förlorar. Full plan i
+`~/.claude/plans/ethereal-singing-scone.md`.
+
+**Vad som skiljer det från Blixt (medvetna designval, inte
+missförstånd):**
+- **Motståndare väljs upfront**, inte efter en spelad runda — det finns
+  ingen oberoende solorunda att spela i förväg eftersom hela poängen
+  är en delad pool mellan två specifika spelare.
+- **Riktig turordning**, inte parallella oberoende rundor: en
+  `skrammelpaj_challenges`-rad är en hel match (många drag), med
+  `current_turn_user_id` som flippas efter varje drag och en egen
+  `skrammelpaj_moves`-tabell (ett drag per rad, till skillnad från
+  Blixts `blixt_scores` som har en rad per deltagare totalt).
+- **72-timmarsgräns för övergivande**, utöver den 2-minuters aktiva
+  klockan — `turn_started_at` persisteras och kollas lat (ingen cron
+  finns i appen) av vem som helst av deltagarna som råkar ha
+  matchlistan öppen (`applyPendingForfeits`, `src/api/skrammelpaj.js`)
+  — samma självrapporterande tillitsmodell som resten av spelet.
+- **Delete är snävare**: bara oavgjorda (`pending`) matcher går att ta
+  bort, inte pågående (`accepted`) — en påbörjad duell avgörs (spelas
+  klart, tiden går ut, eller 72-timmarsgränsen), städas inte bort.
+- **CPU-läge**: ett tredje alternativ utöver vän/slump på
+  motståndarväljaren. Ingen DB-rad alls — hela matchen körs lokalt i
+  `SkrammelpajCpuScreen.jsx` (spelaren mot en bot som väljer slumpmässigt
+  bland formbara ord), vilket per definition håller CPU-matcher borta
+  från topplistan och resultatfliken.
+
+**Filer:** `src/game/skrammelpajConstants.js`, `skrammelpajPool.js`,
+`evaluateSkrammelpajGuess.js`, `matchSeen.js` (generaliserad från den
+gamla `blixtSeen.js`, delas nu mellan båda spelen);
+`src/api/skrammelpaj.js`; `fetchRandomOpponent` flyttad från
+`api/blixt.js` till `api/scores.js` (var redan spelgenerisk, delas nu
+istället för att dupliceras); `src/screens/SkrammelpajScreen.jsx`,
+`SkrammelpajChooseOpponentScreen.jsx`, `SkrammelpajGameScreen.jsx`
+(spelar EN tur mot en given bokstavspool, återanvänds av både
+async-flödet och CPU-loopen), `SkrammelpajCpuScreen.jsx`,
+`SkrammelpajResultScreen.jsx`, `SkrammelpajLeaderboardScreen.jsx`;
+`src/components/SkrammelpajLossModal.jsx`; `App.jsx` (ny state +
+handlers, skärmgrenar `skrammelpaj-choose`/`-cpu`/`-hub`/`-leaderboard`/
+`-play`/`-result`); `HomeScreen.jsx` (ny spela-knapp + samma
+banner/notis-mönster som Blixt). Databas:
+`supabase/migrations/20260721140000_add_skrammelpaj.sql` +
+`supabase/schema.sql` (`skrammelpaj_challenges`, `skrammelpaj_moves`,
+`skrammelpaj_open_challenge_count()`, `skrammelpaj_leaderboard()`).
+
+**Status:** kod klar, `npm run build` grönt. Migrationen är **inte**
+körd mot `skrammel-beta` än — kräver `supabase db push --linked --yes`,
+en skarp databasändring som ska köras efter uttrycklig bekräftelse.
+Ej manuellt testat i webbläsare än.
