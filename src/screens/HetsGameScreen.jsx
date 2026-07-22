@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { T } from "../theme.js";
 import { HETS_MIN_LETTERS, HETS_ROUND_DURATION_SECONDS } from "../game/hetsConstants.js";
-import { generateHetsRound } from "../game/hetsWords.js";
+import { generateHetsRound, shuffleLettersHidingWord } from "../game/hetsWords.js";
 import { evaluateHetsGuess, HetsGuessResult } from "../game/evaluateHetsGuess.js";
 import { playClickSound, playFanfareSound } from "../audio/sounds.js";
 
@@ -41,7 +41,7 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
   const tileRows = useMemo(() => tileRowsFor(round?.letters ?? []), [round]);
   const usedIndices = useMemo(() => new Set(tappedIndices), [tappedIndices]);
   const currentWord = useMemo(
-    () => tappedIndices.map((i) => round.letters[i]).join(""),
+    () => tappedIndices.map((i) => round?.letters[i]).join(""),
     [tappedIndices, round]
   );
 
@@ -81,8 +81,18 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
     setFeedback(null);
   };
 
-  const handleSubmit = () => {
-    const result = evaluateHetsGuess(currentWord, round.letters);
+  const handleReshuffle = () => {
+    setRound((prev) => prev && { ...prev, letters: shuffleLettersHidingWord(prev.letters) });
+    setTappedIndices([]);
+    setFeedback(null);
+  };
+
+  // Gissningen prövas automatiskt så fort ALLA bokstäver är intryckta —
+  // spelaren ska inte behöva trycka Enter/OK när ordet redan är rätt (eller
+  // fel; en full uppsättning bokstäver är alltid en färdig gissning, det
+  // finns inget "halvfärdigt" läge att pausa i).
+  const processGuess = (word) => {
+    const result = evaluateHetsGuess(word, round.letters);
     if (result.status === HetsGuessResult.OK) {
       playFanfareSound();
       const completedLength = round.length;
@@ -106,16 +116,23 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
     }
   };
 
+  // Körs efter varje render (inga deps, samma mönster som tangentbords-
+  // effekten nedan) och triggar bara när tappedIndices faktiskt precis nått
+  // full längd — processGuess nollställer alltid tappedIndices, så villkoret
+  // blir falskt igen på nästa render och kan inte trigga två gånger i rad.
+  useEffect(() => {
+    if (round && tappedIndices.length > 0 && tappedIndices.length === round.letters.length) {
+      processGuess(currentWord);
+    }
+  });
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleSubmit();
-      } else if (e.key === "Backspace") {
+      if (e.key === "Backspace") {
         e.preventDefault();
         handleBackspace();
-      } else if (e.key.length === 1) {
+      } else if (e.key.length === 1 && round) {
         const letter = e.key.toUpperCase();
         const idx = round.letters.findIndex((l, i) => l === letter && !usedIndices.has(i));
         if (idx !== -1) handleTileTap(idx);
@@ -242,11 +259,11 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
           </button>
           <button
             className="skrammel-btn"
-            onClick={handleSubmit}
-            disabled={tappedIndices.length === 0}
-            style={{ ...styles.submitButton, opacity: tappedIndices.length === 0 ? 0.4 : 1 }}
+            onClick={handleReshuffle}
+            style={styles.shuffleButton}
+            aria-label="Blanda om bokstäverna"
           >
-            OK
+            🔀 Blanda
           </button>
         </div>
       </div>
@@ -313,7 +330,7 @@ const styles = {
     background: T.surface, color: T.text, fontWeight: 600, fontSize: "1rem", cursor: "pointer",
     ...INTERACTIVE_STYLE,
   },
-  submitButton: {
+  shuffleButton: {
     flex: 1, height: "2.8rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
     ...INTERACTIVE_STYLE,
