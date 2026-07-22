@@ -71,8 +71,8 @@ function Section({ title, note, children }) {
 
 // Visar en enda rad per motståndare — flera matcher mot samma person blir en
 // hopfälld rad som fälls ut vid klick.
-function ChallengeGroup({ opponentName, challenges, renderActions }) {
-  const [expanded, setExpanded] = useState(false);
+function ChallengeGroup({ opponentName, challenges, renderActions, alwaysExpanded = false }) {
+  const [expanded, setExpanded] = useState(alwaysExpanded);
 
   if (challenges.length === 1) {
     return (
@@ -85,11 +85,17 @@ function ChallengeGroup({ opponentName, challenges, renderActions }) {
 
   return (
     <div style={styles.group}>
-      <button onClick={() => setExpanded((v) => !v)} style={styles.groupHeader}>
-        <span>{opponentName} ({challenges.length})</span>
-        <span style={styles.chevron}>{expanded ? "▲" : "▼"}</span>
-      </button>
-      {expanded && (
+      {alwaysExpanded ? (
+        <div style={styles.groupHeader}>
+          <span>{opponentName} ({challenges.length})</span>
+        </div>
+      ) : (
+        <button onClick={() => setExpanded((v) => !v)} style={styles.groupHeader}>
+          <span>{opponentName} ({challenges.length})</span>
+          <span style={styles.chevron}>{expanded ? "▲" : "▼"}</span>
+        </button>
+      )}
+      {(alwaysExpanded || expanded) && (
         <div style={styles.groupList}>
           {challenges.map((c, i) => (
             <div key={c.id} style={styles.row}>
@@ -175,6 +181,7 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
                   opponentName={g.opponentName}
                   challenges={g.challenges}
                   renderActions={(c) => ongoingActions(c, user.id, onPlay)}
+                  alwaysExpanded
                 />
               ))}
             </Section>

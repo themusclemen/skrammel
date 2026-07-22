@@ -132,8 +132,8 @@ function ResultCard({ challenge, userId }) {
 // det en vanlig rad; med flera blir det en hopfälld rad med antal som
 // fälls ut vid klick, så var och en av matcherna kan spelas/svaras på/tas
 // bort för sig.
-function ChallengeGroup({ opponentName, challenges, renderActions }) {
-  const [expanded, setExpanded] = useState(false);
+function ChallengeGroup({ opponentName, challenges, renderActions, alwaysExpanded = false }) {
+  const [expanded, setExpanded] = useState(alwaysExpanded);
 
   if (challenges.length === 1) {
     return (
@@ -146,11 +146,17 @@ function ChallengeGroup({ opponentName, challenges, renderActions }) {
 
   return (
     <div style={styles.group}>
-      <button onClick={() => setExpanded((v) => !v)} style={styles.groupHeader}>
-        <span>{opponentName} ({challenges.length})</span>
-        <span style={styles.chevron}>{expanded ? "▲" : "▼"}</span>
-      </button>
-      {expanded && (
+      {alwaysExpanded ? (
+        <div style={styles.groupHeader}>
+          <span>{opponentName} ({challenges.length})</span>
+        </div>
+      ) : (
+        <button onClick={() => setExpanded((v) => !v)} style={styles.groupHeader}>
+          <span>{opponentName} ({challenges.length})</span>
+          <span style={styles.chevron}>{expanded ? "▲" : "▼"}</span>
+        </button>
+      )}
+      {(alwaysExpanded || expanded) && (
         <div style={styles.groupList}>
           {challenges.map((c, i) => (
             <div key={c.id} style={styles.row}>
@@ -253,6 +259,7 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
                   opponentName={g.opponentName}
                   challenges={g.challenges}
                   renderActions={(c) => ongoingActions(c, user.id, onPlay, onDelete)}
+                  alwaysExpanded
                 />
               ))}
             </Section>
