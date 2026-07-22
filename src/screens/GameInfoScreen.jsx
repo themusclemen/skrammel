@@ -1,4 +1,11 @@
+import { useState } from "react";
 import { T } from "../theme.js";
+
+// Samma ordlista (public/ordlista.txt) delas av alla tre spelen, så
+// texten om vilka ord som gäller hör hemma här snarare än i varje
+// enskild description-prop. Se "Ordlista" i architecture.md för källan.
+const WORD_LIST_NOTE =
+  "Ordlistan har drygt 70 000 svenska ord, plus vanliga böjningar (plural, bestämd form osv). Genitiv-s (t.ex. \"husets\") är sällan med, och namn räknas inte som ord.";
 
 // Mellansteg mellan hemskärmens spela-knappar och själva spelflödet —
 // förklarar vad spelet går ut på (och för Blixt/Skrammelpaj: vem man
@@ -7,6 +14,8 @@ import { T } from "../theme.js";
 // tar en till arkivet över tidigare dagar) renderas som en tonad extra-
 // knapp under huvudvalet, ospårat av vare sig Blixt eller Skrammelpaj.
 export default function GameInfoScreen({ title, description, onBack, onStart, startLabel = "Starta", secondaryAction }) {
+  const [showWordListNote, setShowWordListNote] = useState(false);
+
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>{title}</h2>
@@ -16,6 +25,14 @@ export default function GameInfoScreen({ title, description, onBack, onStart, st
           <p key={i} style={styles.paragraph}>{paragraph}</p>
         ))}
       </div>
+
+      <button
+        onClick={() => setShowWordListNote((v) => !v)}
+        style={styles.wordListToggle}
+      >
+        {showWordListNote ? "Vilka ord gäller? ▲" : "Vilka ord gäller? ▼"}
+      </button>
+      {showWordListNote && <p style={styles.wordListNote}>{WORD_LIST_NOTE}</p>}
 
       <div style={styles.navRow}>
         <button onClick={onBack} style={styles.backButton}>Tillbaka</button>
@@ -39,6 +56,11 @@ const styles = {
   },
   description: { display: "flex", flexDirection: "column", gap: "0.7rem", maxWidth: 380 },
   paragraph: { margin: 0, color: T.text, fontSize: "1rem", lineHeight: 1.5 },
+  wordListToggle: {
+    background: "none", border: "none", color: T.muted, fontSize: "0.85rem",
+    fontWeight: 600, cursor: "pointer", padding: 0, marginTop: "-0.4rem",
+  },
+  wordListNote: { margin: 0, maxWidth: 380, color: T.muted, fontSize: "0.85rem", lineHeight: 1.5 },
   navRow: { display: "flex", gap: "0.6rem", width: "100%", maxWidth: 380, marginTop: "0.5rem" },
   backButton: {
     flex: 1, padding: "0.8rem", borderRadius: 10, border: `1px solid ${T.border}`,

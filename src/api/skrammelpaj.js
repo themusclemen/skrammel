@@ -21,20 +21,59 @@ export async function createChallenge(creatorId, creatorName, opponentId, oppone
   return data;
 }
 
-// Vid accept blir det mottagarens (den utmanades) tur — trevligare att den
-// som blev utmanad får sätta tonen med första draget än att utmanaren, som
-// redan valde tillfället, även får spela först. Turen och dess
-// 72-timmarsklocka startar här, inte vid utmaningens skapande.
+// Vem som fick sätta första ordet FÖRRA gången de här två möttes avgör vem
+// som gör det den här gången — flip-flop mellan samma två spelare, oavsett
+// vem som råkar vara creator/opponent i just den här utmaningen (annars
+// skulle den som oftast utmanar också oftast få/aldrig få börja). Bara
+// accepterade-eller-längre matcher räknas (en avböjd utmaning fick aldrig
+// någon tilldelad starttur). Ingen historik hittad (första gången de möts)
+// → samma standard som förut: den utmanade börjar.
+async function determineFirstMover(challenge) {
+  if (!isSupabaseConfigured) return challenge.opponent_id;
+
+  const { data, error } = await supabase
+    .from("skrammelpaj_challenges")
+    .select("creator_id, current_turn_user_id, created_at, skrammelpaj_moves(user_id, move_number)")
+    .neq("id", challenge.id)
+    .in("status", ["accepted", "completed"])
+    .or(
+      `and(creator_id.eq.${challenge.creator_id},opponent_id.eq.${challenge.opponent_id}),`
+      + `and(creator_id.eq.${challenge.opponent_id},opponent_id.eq.${challenge.creator_id})`
+    )
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+
+  const previous = data?.[0];
+  if (!previous) return challenge.opponent_id;
+
+  // Första draget avgör vem som startade — om matchen ännu inte fått något
+  // drag alls (accepterad men inget spelat än) är current_turn_user_id
+  // fortfarande densamma personen, så det duger som fallback.
+  const firstMove = (previous.skrammelpaj_moves ?? []).find((m) => m.move_number === 1);
+  const previousStarter = firstMove?.user_id ?? previous.current_turn_user_id;
+  return previousStarter === challenge.creator_id ? challenge.opponent_id : challenge.creator_id;
+}
+
+// Turen och dess 72-timmarsklocka startar vid accept, inte vid utmaningens
+// skapande — se determineFirstMover ovan för vem som får den.
 export async function respondToChallenge(challenge, accept) {
   if (!isSupabaseConfigured) return;
-  const update = accept
-    ? {
-        status: "accepted",
-        current_turn_user_id: challenge.opponent_id,
-        turn_started_at: new Date().toISOString(),
-      }
-    : { status: "declined" };
-  const { error } = await supabase.from("skrammelpaj_challenges").update(update).eq("id", challenge.id);
+  if (!accept) {
+    const { error } = await supabase.from("skrammelpaj_challenges").update({ status: "declined" }).eq("id", challenge.id);
+    if (error) throw error;
+    return;
+  }
+
+  const firstMoverId = await determineFirstMover(challenge);
+  const { error } = await supabase
+    .from("skrammelpaj_challenges")
+    .update({
+      status: "accepted",
+      current_turn_user_id: firstMoverId,
+      turn_started_at: new Date().toISOString(),
+    })
+    .eq("id", challenge.id);
   if (error) throw error;
 }
 

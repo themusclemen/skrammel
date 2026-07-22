@@ -274,8 +274,18 @@ export default function SkrammelpajGameScreen({
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const seconds = String(timeLeft % 60).padStart(2, "0");
   const isLowTime = timeLeft <= 30;
+  // Bara sant för den allra första turen i en helt ny match (inget drag
+  // gjort av någon än) — det är då det är relevant att förklara VARFÖR just
+  // den här spelaren fick börja den här gången (se determineFirstMover i
+  // api/skrammelpaj.js): vem som startar en match växlar mellan samma två
+  // spelare varje gång de möts, så ingen av dem alltid/aldrig får sätta
+  // första ordet.
+  const isFirstMoveOfMatch = Boolean(challenge) && (challenge.skrammelpaj_moves ?? []).length === 0;
   const introMessage = opponentName
     ? `Din tur mot ${opponentName}! Bilda ett ord av kvarvarande bokstäver innan tiden går ut, annars förlorar du.`
+      + (isFirstMoveOfMatch
+        ? ` Ni turas om vem som får sätta första ordet — den här gången är det du, nästa match blir det ${opponentName}s tur.`
+        : "")
     : "Bilda ett ord av kvarvarande bokstäver innan tiden går ut, annars förlorar du.";
 
   // Väntar-läget ersätter INTE brädet — spelaren ska fortsätta se poolen
@@ -309,8 +319,11 @@ export default function SkrammelpajGameScreen({
           waitingWord ? (
             <div style={styles.waitingWord}>Du spelade &quot;{waitingWord}&quot;</div>
           ) : (
-            <div style={styles.waitingWord}>
-              Väntar på {opponentName ? `${opponentName}s` : "motståndarens"} första drag
+            <div style={styles.waitingCenter}>
+              <div style={styles.waitingWord}>
+                Väntar på {opponentName ? `${opponentName}s` : "motståndarens"} första drag
+              </div>
+              <div style={styles.waitingNote}>Ni turas om vem som får börja — nästa match blir det din tur.</div>
             </div>
           )
         ) : tappedIndices.length === 0 ? (
@@ -463,6 +476,8 @@ const styles = {
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
   },
   waitingWord: { fontSize: "1.3rem", fontWeight: 700, color: T.text },
+  waitingCenter: { display: "flex", flexDirection: "column", alignItems: "center", gap: "0.4rem", textAlign: "center" },
+  waitingNote: { fontSize: "0.85rem", fontWeight: 400, color: T.muted, maxWidth: 280 },
   tileWaiting: { opacity: 0.6, cursor: "default" },
   opponentMovedBanner: {
     display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.6rem",
