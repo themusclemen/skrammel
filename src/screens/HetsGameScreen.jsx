@@ -35,6 +35,12 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
   const [sessionStartedAt] = useState(() => Date.now());
   const finishedRef = useRef(false);
   const solvedTimeoutRef = useRef(null);
+  // Tiden som räknas är fram till den SENAST klarade rundan, inte fram till
+  // att spelaren faktiskt föll — annars skulle tiden man slösar på en runda
+  // man ändå inte klarar (t.ex. hela 20 sekunder bommat på 8 bokstäver efter
+  // att ha klarat 7) orättvist straffa tiebreaken för ett resultat man redan
+  // uppnått. Uppdateras i processGuess vid varje lyckad runda.
+  const lastSuccessElapsedRef = useRef(0);
 
   useEffect(() => () => clearTimeout(solvedTimeoutRef.current), []);
 
@@ -50,10 +56,10 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
     finishedRef.current = true;
     onFinish({
       highestCompletedLength,
-      totalTimeMs: Date.now() - sessionStartedAt,
+      totalTimeMs: lastSuccessElapsedRef.current,
       revealWord: round?.word ?? null,
     });
-  }, [onFinish, highestCompletedLength, sessionStartedAt, round]);
+  }, [onFinish, highestCompletedLength, round]);
 
   useEffect(() => {
     if (timeLeft <= 0) {
@@ -96,6 +102,7 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
     if (result.status === HetsGuessResult.OK) {
       playFanfareSound();
       const completedLength = round.length;
+      lastSuccessElapsedRef.current = Date.now() - sessionStartedAt;
       setHighestCompletedLength(completedLength);
       setJustSolvedLength(completedLength);
       clearTimeout(solvedTimeoutRef.current);

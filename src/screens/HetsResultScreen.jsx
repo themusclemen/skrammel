@@ -28,12 +28,17 @@ export default function HetsResultScreen({
   const { share, copied } = useShare();
   const seconds = (totalTimeMs / 1000).toFixed(1);
   const newRecord = user && isNewRecord(highestCompletedLength, totalTimeMs, previousBest);
+  const solvedAny = highestCompletedLength > 0;
 
   return (
     <div style={styles.page}>
       <div style={{ color: T.muted }}>Tiden är ute!</div>
       <div style={styles.score}>{highestCompletedLength} bokstäver</div>
-      <div style={{ color: T.muted }}>{seconds} sekunder totalt</div>
+      {/* Tiden är fram till den SENAST klarade rundan, inte fram till att
+          spelaren föll — se lastSuccessElapsedRef i HetsGameScreen.jsx. */}
+      <div style={{ color: T.muted }}>
+        {solvedAny ? `${seconds} sekunder för att nå ${highestCompletedLength} bokstäver` : "Ingen runda klarad den här gången"}
+      </div>
 
       {newRecord && <div style={styles.recordBadge}>🔥 Nytt rekord!</div>}
       {user && !newRecord && previousBest && (
