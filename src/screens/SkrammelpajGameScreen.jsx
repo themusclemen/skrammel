@@ -71,14 +71,22 @@ export default function SkrammelpajGameScreen({
 
   const isMyTurn = challenge ? challenge.current_turn_user_id === userId : true;
   const matchCompleted = challenge?.status === "completed";
+  // Man kan gå in på en pågående match från hubben även när det är
+  // motståndarens tur, bara för att titta ("Titta"-knappen i
+  // SkrammelpajScreen) — då ska skärmen öppnas direkt i samma väntar-läge
+  // som annars bara sätts efter ett eget drag, istället för att låta
+  // spelaren peta på brickor som inte är deras tur att spela.
+  const opensInViewOnlyMode = Boolean(challenge) && !isMyTurn && !matchCompleted;
 
   // I CPU-läget visas introt bara på första turen (varje efterföljande tur
   // är samma session, inte en ny — att förklara reglerna igen varje gång
   // vore bara friktion, till skillnad från en riktig async-match där varje
   // tur öppnades som en helt egen session förut). Nu när async-matcher inte
   // heller navigerar bort mellan turer gäller samma resonemang där: introt
-  // visas bara en gång per session.
-  const [showIntro, setShowIntro] = useState(!skipIntro);
+  // visas bara en gång per session. Om man bara kommit för att titta (inte
+  // ens tur) är introtexten "Din tur mot X!" missvisande, så den hoppas
+  // över helt.
+  const [showIntro, setShowIntro] = useState(!skipIntro && !opensInViewOnlyMode);
   const [timeLeft, setTimeLeft] = useState(durationSeconds);
   const [tappedIndices, setTappedIndices] = useState([]);
   const [feedback, setFeedback] = useState(null);
@@ -89,8 +97,10 @@ export default function SkrammelpajGameScreen({
   const [matchEndModal, setMatchEndModal] = useState(null);
   // Satta direkt efter ett eget, icke-avgörande drag — spelaren stannar på
   // skärmen och väntar på att challenge-proppen (som App.jsx håller
-  // uppdaterad via polling) visar att motståndaren svarat.
-  const [waiting, setWaiting] = useState(false);
+  // uppdaterad via polling) visar att motståndaren svarat. Även satt direkt
+  // vid mount om man öppnade matchen bara för att titta (se
+  // opensInViewOnlyMode ovan).
+  const [waiting, setWaiting] = useState(opensInViewOnlyMode);
   const [ownLastWord, setOwnLastWord] = useState(null);
   const [opponentMoved, setOpponentMoved] = useState(false);
   const resolvedRef = useRef(false);
@@ -103,6 +113,21 @@ export default function SkrammelpajGameScreen({
     [tappedIndices, originalLetters]
   );
   const remainingCount = originalLetters.length - consumedIndices.size;
+
+  // Om väntar-läget sattes direkt vid mount (titta-läge, inte efter ett eget
+  // drag i den här sessionen) finns inget ownLastWord — leta då upp
+  // spelarens senaste drag i draghistoriken istället. Kan vara null om det
+  // är motståndarens allra första tur (den som blev utmanad spelar alltid
+  // först, se respondToChallenge i api/skrammelpaj.js) och jag ännu inte
+  // gjort något drag alls.
+  const lastOwnMove = useMemo(() => {
+    const moves = challenge?.skrammelpaj_moves ?? [];
+    for (let i = moves.length - 1; i >= 0; i--) {
+      if (moves[i].user_id === userId) return moves[i];
+    }
+    return null;
+  }, [challenge, userId]);
+  const waitingWord = ownLastWord ?? lastOwnMove?.word ?? null;
 
   // Poolen kan redan vara omöjlig när turen öppnas (motståndarens senaste
   // drag tömde ut det sista spelbara läget) — spelaren förlorar direkt
@@ -281,7 +306,13 @@ export default function SkrammelpajGameScreen({
 
       <div style={styles.guessCenter}>
         {waiting ? (
-          <div style={styles.waitingWord}>Du spelade &quot;{ownLastWord}&quot;</div>
+          waitingWord ? (
+            <div style={styles.waitingWord}>Du spelade &quot;{waitingWord}&quot;</div>
+          ) : (
+            <div style={styles.waitingWord}>
+              Väntar på {opponentName ? `${opponentName}s` : "motståndarens"} första drag
+            </div>
+          )
         ) : tappedIndices.length === 0 ? (
           <span style={styles.cursor}>_</span>
         ) : (

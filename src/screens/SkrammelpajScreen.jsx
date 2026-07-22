@@ -118,7 +118,7 @@ function TabButton({ active, onClick, children }) {
 function ongoingActions(challenge, userId, onPlay) {
   return classifyChallenge(challenge, userId) === "your_turn"
     ? <button onClick={() => onPlay(challenge)} style={styles.smallButton}>Spela</button>
-    : <span style={styles.mutedLabel}>Väntar på motståndaren</span>;
+    : <button onClick={() => onPlay(challenge)} style={styles.smallButtonMuted}>Titta</button>;
 }
 
 function waitingActions(challenge, userId, onRespond, onDelete) {
@@ -259,7 +259,6 @@ const styles = {
     color: T.accent, fontSize: "0.95rem", fontWeight: 800, letterSpacing: "0.04em", textAlign: "left",
   },
   sectionNote: { color: T.muted, fontSize: "0.75rem", textAlign: "left", marginTop: "-0.2rem" },
-  mutedLabel: { color: T.muted, fontSize: "0.8rem" },
   list: { display: "flex", flexDirection: "column", gap: "0.5rem" },
   row: {
     display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0.75rem",
