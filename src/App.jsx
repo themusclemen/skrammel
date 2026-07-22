@@ -147,12 +147,19 @@ export default function App() {
 
   useEffect(() => { refreshBlixtChallenges(); }, [refreshBlixtChallenges]);
 
+  // "Ditt drag" (your_turn) och "väntar på svar" (needs_response) är olika
+  // sorters uppmärksamhet — det förra kräver att man spelar ett drag, det
+  // senare bara att man antar/avböjer en utmaning. De hölls tidigare ihop i
+  // en enda räkning, vilket fick badgen att visa t.ex. "6" fast bara 2 var
+  // faktiska drag att göra. Separata räkningar nu, se HomeScreen.jsx.
   const pendingBlixtCount = useMemo(() => {
     if (!user) return 0;
-    return myBlixtChallenges.filter((c) => {
-      const status = classifyChallenge(c, user.id);
-      return status === "needs_response" || status === "your_turn";
-    }).length;
+    return myBlixtChallenges.filter((c) => classifyChallenge(c, user.id) === "your_turn").length;
+  }, [myBlixtChallenges, user]);
+
+  const pendingBlixtInviteCount = useMemo(() => {
+    if (!user) return 0;
+    return myBlixtChallenges.filter((c) => classifyChallenge(c, user.id) === "needs_response").length;
   }, [myBlixtChallenges, user]);
 
   // Räknar matcher som bytt status (t.ex. antagen eller klar) sen jag
@@ -201,10 +208,12 @@ export default function App() {
 
   const pendingSkrammelpajCount = useMemo(() => {
     if (!user) return 0;
-    return mySkrammelpajChallenges.filter((c) => {
-      const status = classifySkrammelpajChallenge(c, user.id);
-      return status === "needs_response" || status === "your_turn";
-    }).length;
+    return mySkrammelpajChallenges.filter((c) => classifySkrammelpajChallenge(c, user.id) === "your_turn").length;
+  }, [mySkrammelpajChallenges, user]);
+
+  const pendingSkrammelpajInviteCount = useMemo(() => {
+    if (!user) return 0;
+    return mySkrammelpajChallenges.filter((c) => classifySkrammelpajChallenge(c, user.id) === "needs_response").length;
   }, [mySkrammelpajChallenges, user]);
 
   const [skrammelpajSeenVersion, setSkrammelpajSeenVersion] = useState(0);
@@ -961,8 +970,10 @@ export default function App() {
         bestLevel={bestLevel}
         playedToday={playedToday}
         pendingBlixtCount={pendingBlixtCount}
+        pendingBlixtInviteCount={pendingBlixtInviteCount}
         blixtUpdatesCount={blixtUpdatesCount}
         pendingSkrammelpajCount={pendingSkrammelpajCount}
+        pendingSkrammelpajInviteCount={pendingSkrammelpajInviteCount}
         skrammelpajUpdatesCount={skrammelpajUpdatesCount}
         onPlay={() => navigate("daily-info")}
         onPlayBlixt={() => navigate("blixt-info")}

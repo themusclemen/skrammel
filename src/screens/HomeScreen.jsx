@@ -2,19 +2,27 @@ import { T } from "../theme.js";
 
 export default function HomeScreen({
   user, displayName, streak, bestLevel, playedToday = false,
-  pendingBlixtCount = 0, blixtUpdatesCount = 0, pendingSkrammelpajCount = 0, skrammelpajUpdatesCount = 0,
+  pendingBlixtCount = 0, pendingBlixtInviteCount = 0, blixtUpdatesCount = 0,
+  pendingSkrammelpajCount = 0, pendingSkrammelpajInviteCount = 0, skrammelpajUpdatesCount = 0,
   onPlay, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
-  // Slår ihop "väntar på dig"/"uppdaterad" till EN banner per spel (väntar
-  // vinner om båda är sanna) — fyra separata banners kändes för mycket
-  // information på en gång.
+  // Slår ihop "väntar på dig"/"uppdaterad" till EN banner per spel (drag att
+  // göra vinner över nya utmaningar, som i sin tur vinner över "uppdaterad")
+  // — fyra separata banners kändes för mycket information på en gång.
+  // pendingBlixtCount/pendingSkrammelpajCount räknar bara faktiska drag
+  // (your_turn) — inbjudningar som väntar på svar räknas separat så
+  // badgen inte blåses upp med matcher man inte ska spela ett drag i.
   const blixtBannerText = pendingBlixtCount > 0
-    ? `⚡ ${pendingBlixtCount} blixtutmaning${pendingBlixtCount > 1 ? "ar" : ""} väntar!`
+    ? `⚡ ${pendingBlixtCount} blixtutmaning${pendingBlixtCount > 1 ? "ar" : ""} väntar på ditt drag!`
+    : pendingBlixtInviteCount > 0
+    ? `📨 ${pendingBlixtInviteCount} ny${pendingBlixtInviteCount > 1 ? "a" : ""} blixtutmaning${pendingBlixtInviteCount > 1 ? "ar" : ""} väntar på svar!`
     : blixtUpdatesCount > 0
     ? `🔔 ${blixtUpdatesCount} blixtmatch${blixtUpdatesCount > 1 ? "er" : ""} uppdaterad${blixtUpdatesCount > 1 ? "e" : ""}`
     : null;
   const skrammelpajBannerText = pendingSkrammelpajCount > 0
-    ? `🥧 ${pendingSkrammelpajCount} skrammelpaj${pendingSkrammelpajCount > 1 ? "-matcher" : "-match"} väntar!`
+    ? `🥧 ${pendingSkrammelpajCount} skrammelpaj${pendingSkrammelpajCount > 1 ? "-matcher" : "-match"} väntar på ditt drag!`
+    : pendingSkrammelpajInviteCount > 0
+    ? `📨 ${pendingSkrammelpajInviteCount} ny${pendingSkrammelpajInviteCount > 1 ? "a" : ""} skrammelpaj-utmaning${pendingSkrammelpajInviteCount > 1 ? "ar" : ""} väntar på svar!`
     : skrammelpajUpdatesCount > 0
     ? `🔔 ${skrammelpajUpdatesCount} skrammelpaj-match${skrammelpajUpdatesCount > 1 ? "er" : ""} uppdaterad${skrammelpajUpdatesCount > 1 ? "e" : ""}`
     : null;
@@ -43,13 +51,19 @@ export default function HomeScreen({
       )}
 
       {user && blixtBannerText && (
-        <button onClick={onGoToBlixt} style={pendingBlixtCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}>
+        <button
+          onClick={onGoToBlixt}
+          style={pendingBlixtCount > 0 || pendingBlixtInviteCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}
+        >
           {blixtBannerText}
         </button>
       )}
 
       {user && skrammelpajBannerText && (
-        <button onClick={onGoToSkrammelpaj} style={pendingSkrammelpajCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}>
+        <button
+          onClick={onGoToSkrammelpaj}
+          style={pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}
+        >
           {skrammelpajBannerText}
         </button>
       )}
