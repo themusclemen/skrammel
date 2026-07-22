@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import { fetchTodaysWord, fetchAllDailyWords } from "./api/dailyWord.js";
 import { submitScore, fetchUserPlayedDates, fetchUserStats } from "./api/scores.js";
+import { submitHetsScore, fetchMyHetsBest } from "./api/hets.js";
 import { loadWordList, getDictionary } from "./game/wordList.js";
 import { computeStreak } from "./game/streak.js";
 import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
@@ -33,6 +34,9 @@ import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
 import GameInfoScreen from "./screens/GameInfoScreen.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
+import HetsGameScreen from "./screens/HetsGameScreen.jsx";
+import HetsResultScreen from "./screens/HetsResultScreen.jsx";
+import HetsLeaderboardScreen from "./screens/HetsLeaderboardScreen.jsx";
 import LeaderboardScreen from "./screens/LeaderboardScreen.jsx";
 import TopplistorScreen from "./screens/TopplistorScreen.jsx";
 import ArchiveScreen from "./screens/ArchiveScreen.jsx";
@@ -82,6 +86,12 @@ export default function App() {
   const [isReplay, setIsReplay] = useState(false);
   const [leaderboardDate, setLeaderboardDate] = useState(null);
   const [lastResult, setLastResult] = useState(null); // { score, words }
+  // Hets (solo tidsrusning, se game/hetsWords.js): spelarens eget rekord,
+  // hämtat INNAN en runda startar så det kan visas som ett ständigt mål
+  // under hela spelet (se HetsGameScreen) — inte bara i efterhand på
+  // topplistan.
+  const [hetsPersonalBest, setHetsPersonalBest] = useState(null);
+  const [hetsResult, setHetsResult] = useState(null); // { highestCompletedLength, totalTimeMs, revealWord, previousBest }
   const [archiveData, setArchiveData] = useState(null); // { playableDates, playedDates }
   // Underlag för spelstreck och bästa nivå — se HomeScreen/ResultScreen.
   const [userStats, setUserStats] = useState({ playedDates: [], levelTimesList: [] });
@@ -316,6 +326,33 @@ export default function App() {
   const handleGameFinish = useCallback((score, words, totalPossibleScore) => {
     setLastResult({ score, words, todayLevel: levelReachedForScore(score, totalPossibleScore) });
     setScreen("result");
+  }, []);
+
+  // Hämtar spelarens Hets-rekord innan förklaringsskärmen visas, så målet
+  // syns redan där (inte bara på resultatskärmen efteråt).
+  const goToHetsInfo = useCallback(() => {
+    setScreen("hets-info");
+    if (user) fetchMyHetsBest(user.id).then(setHetsPersonalBest);
+    else setHetsPersonalBest(null);
+  }, [user]);
+
+  // Sparar bara om resultatet faktiskt slår det gamla rekordet (se
+  // submitHetsScore) och hämtar sen om det egna rekordet, så en efterföljande
+  // "Spela igen" visar det uppdaterade målet — inte det som gällde innan den
+  // här rundan.
+  const handleHetsFinish = useCallback(async ({ highestCompletedLength, totalTimeMs, revealWord }) => {
+    const previousBest = hetsPersonalBest;
+    if (user) {
+      const name = displayName ?? user.email.split("@")[0];
+      await submitHetsScore(user.id, name, highestCompletedLength, totalTimeMs);
+      setHetsPersonalBest(await fetchMyHetsBest(user.id));
+    }
+    setHetsResult({ highestCompletedLength, totalTimeMs, revealWord, previousBest });
+    setScreen("hets-result");
+  }, [user, displayName, hetsPersonalBest]);
+
+  const goToHetsLeaderboard = useCallback(() => {
+    setScreen("hets-leaderboard");
   }, []);
 
   const handleSignOut = useCallback(() => {
@@ -703,6 +740,54 @@ export default function App() {
     );
   }
 
+  if (screen === "hets-info") {
+    return (
+      <GameInfoScreen
+        title="🔥 Hets"
+        description={[
+          "Datorn slumpar bokstäver som bildar ett ord — du har 20 sekunder på dig att skriva vilket giltigt ord som helst av exakt de bokstäverna.",
+          "Första rundan är 3 bokstäver, sen blir det en bokstav till för varje runda du klarar. Du får gissa om och om igen, bara tiden inte tar slut.",
+          hetsPersonalBest
+            ? `Ditt rekord just nu: ${hetsPersonalBest.best_length} bokstäver.`
+            : "Du spelar helt själv, men det finns en topplista att klättra på.",
+        ]}
+        onBack={() => navigate("home")}
+        onStart={() => setScreen("hets-play")}
+      />
+    );
+  }
+
+  if (screen === "hets-play") {
+    return (
+      <HetsGameScreen
+        personalBest={hetsPersonalBest}
+        loggedIn={Boolean(user)}
+        onFinish={handleHetsFinish}
+        onBack={() => navigate("home")}
+      />
+    );
+  }
+
+  if (screen === "hets-result" && hetsResult) {
+    return (
+      <HetsResultScreen
+        highestCompletedLength={hetsResult.highestCompletedLength}
+        totalTimeMs={hetsResult.totalTimeMs}
+        revealWord={hetsResult.revealWord}
+        previousBest={hetsResult.previousBest}
+        user={user}
+        onPlayAgain={() => setScreen("hets-play")}
+        onLeaderboard={goToHetsLeaderboard}
+        onHome={() => navigate("home")}
+        onLogin={() => navigate("auth")}
+      />
+    );
+  }
+
+  if (screen === "hets-leaderboard") {
+    return <HetsLeaderboardScreen onHome={() => navigate("home")} />;
+  }
+
   if (screen === "blixt-info") {
     return (
       <GameInfoScreen
@@ -927,6 +1012,7 @@ export default function App() {
     return (
       <TopplistorScreen
         onDailyLeaderboard={() => goToLeaderboard(todayStr())}
+        onHetsLeaderboard={goToHetsLeaderboard}
         onBlixtLeaderboard={goToBlixtLeaderboard}
         onSkrammelpajLeaderboard={goToSkrammelpajLeaderboard}
         onBack={() => navigate("home")}
@@ -976,6 +1062,7 @@ export default function App() {
         pendingSkrammelpajInviteCount={pendingSkrammelpajInviteCount}
         skrammelpajUpdatesCount={skrammelpajUpdatesCount}
         onPlay={() => navigate("daily-info")}
+        onPlayHets={goToHetsInfo}
         onPlayBlixt={() => navigate("blixt-info")}
         onPlaySkrammelpaj={() => navigate("skrammelpaj-info")}
         onTopplistor={() => navigate("topplistor")}

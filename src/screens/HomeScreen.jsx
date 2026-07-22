@@ -4,7 +4,7 @@ export default function HomeScreen({
   user, displayName, streak, bestLevel, playedToday = false,
   pendingBlixtCount = 0, pendingBlixtInviteCount = 0, blixtUpdatesCount = 0,
   pendingSkrammelpajCount = 0, pendingSkrammelpajInviteCount = 0, skrammelpajUpdatesCount = 0,
-  onPlay, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
+  onPlay, onPlayHets, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
   // Slår ihop "väntar på dig"/"uppdaterad" till EN banner per spel (drag att
   // göra vinner över nya utmaningar, som i sin tur vinner över "uppdaterad")
@@ -72,6 +72,9 @@ export default function HomeScreen({
         <button onClick={onPlay} style={{ ...styles.playButton, animation: playedToday ? "none" : "skrammelBlink 1.2s steps(1, end) infinite" }}>
           Dagens Skrammel
         </button>
+      </div>
+      <div style={styles.playButtonBorder}>
+        <button onClick={onPlayHets} style={styles.playButton}>Hets</button>
       </div>
       {user && (
         <div style={styles.playButtonBorder}>

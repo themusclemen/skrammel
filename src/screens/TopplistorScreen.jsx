@@ -6,7 +6,7 @@ import { T } from "../theme.js";
 // redan byggda topplista (LeaderboardScreen/BlixtLeaderboardScreen/
 // SkrammelpajLeaderboardScreen) — med en kort förklaring av vad var och en
 // visar, så valet är begripligt innan man klickar.
-export default function TopplistorScreen({ onDailyLeaderboard, onBlixtLeaderboard, onSkrammelpajLeaderboard, onBack }) {
+export default function TopplistorScreen({ onDailyLeaderboard, onHetsLeaderboard, onBlixtLeaderboard, onSkrammelpajLeaderboard, onBack }) {
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>🏆 Topplistor</h2>
@@ -15,6 +15,11 @@ export default function TopplistorScreen({ onDailyLeaderboard, onBlixtLeaderboar
       <button onClick={onDailyLeaderboard} style={styles.card}>
         <div style={styles.cardTitle}>✨ Dagens Skrammel</div>
         <div style={styles.cardDesc}>Dagens ord, rankat efter poäng — en ny lista varje dag</div>
+      </button>
+
+      <button onClick={onHetsLeaderboard} style={styles.card}>
+        <div style={styles.cardTitle}>🔥 Hets</div>
+        <div style={styles.cardDesc}>Rankat efter flest bokstäver klarade, sen kortast tid</div>
       </button>
 
       <button onClick={onBlixtLeaderboard} style={styles.card}>
