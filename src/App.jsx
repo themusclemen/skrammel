@@ -745,7 +745,7 @@ export default function App() {
       <GameInfoScreen
         title="🔥 Hets"
         description={[
-          "Datorn slumpar bokstäver som bildar ett ord — du har 20 sekunder på dig att skriva vilket giltigt ord som helst av exakt de bokstäverna.",
+          "Datorn slumpar bokstäver som bildar ett ord — du har 30 sekunder på dig att skriva vilket giltigt ord som helst av exakt de bokstäverna.",
           "Första rundan är 3 bokstäver, sen blir det en bokstav till för varje runda du klarar. Du får gissa om och om igen, bara tiden inte tar slut.",
           hetsPersonalBest
             ? `Ditt rekord just nu: ${hetsPersonalBest.best_length} bokstäver.`

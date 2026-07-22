@@ -37,7 +37,7 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
   const solvedTimeoutRef = useRef(null);
   // Tiden som räknas är fram till den SENAST klarade rundan, inte fram till
   // att spelaren faktiskt föll — annars skulle tiden man slösar på en runda
-  // man ändå inte klarar (t.ex. hela 20 sekunder bommat på 8 bokstäver efter
+  // man ändå inte klarar (t.ex. hela rundans tid bommat på 8 bokstäver efter
   // att ha klarat 7) orättvist straffa tiebreaken för ett resultat man redan
   // uppnått. Uppdateras i processGuess vid varje lyckad runda.
   const lastSuccessElapsedRef = useRef(0);
