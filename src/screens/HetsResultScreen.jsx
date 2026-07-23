@@ -4,7 +4,7 @@ import { useShare } from "../hooks/useShare.js";
 function buildShareText(highestCompletedLength, totalTimeMs) {
   const seconds = (totalTimeMs / 1000).toFixed(1);
   return [
-    "Hets",
+    "Solo-Hets",
     `🔥 ${highestCompletedLength} bokstäver på ${seconds} sekunder`,
     window.location.origin,
   ].join("\n");
@@ -61,7 +61,7 @@ export default function HetsResultScreen({
 
       <div style={styles.navRow}>
         <button onClick={onPlayAgain} style={styles.navButton}>Spela igen</button>
-        <button onClick={onLeaderboard} style={styles.navButton}>Topplista för Hets</button>
+        <button onClick={onLeaderboard} style={styles.navButton}>Topplista för Solo-Hets</button>
         <button onClick={onHome} style={styles.navButton}>Till start</button>
       </div>
     </div>

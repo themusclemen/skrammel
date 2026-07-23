@@ -12,12 +12,12 @@ export default function HetsLeaderboardScreen({ onHome }) {
 
   return (
     <div style={styles.page}>
-      <h2 style={{ margin: 0, color: T.accent }}>Topplista för Hets</h2>
+      <h2 style={{ margin: 0, color: T.accent }}>Topplista för Solo-Hets</h2>
       <div style={{ color: T.muted, fontSize: "0.85rem" }}>Rankat efter flest bokstäver, sen kortast tid</div>
 
       {error && <div style={{ color: T.muted }}>Topplistan är inte redo än.</div>}
       {!error && rows === null && <div style={{ color: T.muted }}>Laddar…</div>}
-      {rows && rows.length === 0 && <div style={{ color: T.muted }}>Ingen har spelat Hets än. Bli först!</div>}
+      {rows && rows.length === 0 && <div style={{ color: T.muted }}>Ingen har spelat Solo-Hets än. Bli först!</div>}
 
       {rows && rows.length > 0 && (
         <div style={styles.list}>

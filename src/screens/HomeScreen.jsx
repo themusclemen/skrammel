@@ -48,7 +48,7 @@ export default function HomeScreen({
         </button>
       </div>
       <div style={styles.playButtonBorder}>
-        <button onClick={onPlayHets} style={styles.playButton}>Hets</button>
+        <button onClick={onPlayHets} style={styles.playButton}>Solo-Hets</button>
       </div>
       {user && (
         <div style={styles.playButtonBorder}>

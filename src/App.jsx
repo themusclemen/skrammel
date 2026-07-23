@@ -743,7 +743,7 @@ export default function App() {
   if (screen === "hets-info") {
     return (
       <GameInfoScreen
-        title="🔥 Hets"
+        title="🔥 Solo-Hets"
         description={[
           "Datorn slumpar bokstäver som bildar ett ord — du har 30 sekunder på dig att skriva vilket giltigt ord som helst av exakt de bokstäverna.",
           "Första rundan är 3 bokstäver, sen blir det en bokstav till för varje runda du klarar. Du får gissa om och om igen, bara tiden inte tar slut.",

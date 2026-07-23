@@ -178,7 +178,7 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
 
       <div style={styles.titleRow}>
         <span style={styles.sparkle}>🔥</span>
-        <h1 style={styles.title}>HETS</h1>
+        <h1 style={styles.title}>SOLO-HETS</h1>
         <span style={styles.sparkle}>🔥</span>
       </div>
 

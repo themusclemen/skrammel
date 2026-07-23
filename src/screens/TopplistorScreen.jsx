@@ -18,7 +18,7 @@ export default function TopplistorScreen({ onDailyLeaderboard, onHetsLeaderboard
       </button>
 
       <button onClick={onHetsLeaderboard} style={styles.card}>
-        <div style={styles.cardTitle}>🔥 Hets</div>
+        <div style={styles.cardTitle}>🔥 Solo-Hets</div>
         <div style={styles.cardDesc}>Rankat efter flest bokstäver klarade, sen kortast tid</div>
       </button>
 
