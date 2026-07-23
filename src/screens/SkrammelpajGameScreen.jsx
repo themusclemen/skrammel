@@ -295,9 +295,9 @@ export default function SkrammelpajGameScreen({
   return (
     <div style={styles.page}>
       <div style={styles.titleRow}>
-        <span style={styles.sparkle}>🥧</span>
-        <h1 style={styles.title}>SKRAMMELPAJ</h1>
-        <span style={styles.sparkle}>🥧</span>
+        <span style={styles.sparkle}>🔤</span>
+        <h1 style={styles.title}>BOKSTAVS-DUELL</h1>
+        <span style={styles.sparkle}>🔤</span>
       </div>
 
       <div style={styles.statusCard}>
@@ -407,7 +407,7 @@ export default function SkrammelpajGameScreen({
       )}
 
       {showIntro && (
-        <GameIntroModal title="🥧 Skrammelpaj" message={introMessage} onStart={() => setShowIntro(false)} onBack={onBack} />
+        <GameIntroModal title="🔤 Bokstavs-Duell" message={introMessage} onStart={() => setShowIntro(false)} onBack={onBack} />
       )}
     </div>
   );

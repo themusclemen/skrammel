@@ -885,7 +885,7 @@ export default function App() {
   if (screen === "skrammelpaj-info") {
     return (
       <GameInfoScreen
-        title="🥧 SkrammelPaj"
+        title="🔤 Bokstavs-Duell"
         description={[
           "Du och en motståndare turas om att bilda ord ur en gemensam bokstavspool — bokstäverna försvinner ur poolen allt eftersom de används.",
           "Den som inte hittar ett ord inom 2 minuter, eller inte kan hitta något mer alls, förlorar.",

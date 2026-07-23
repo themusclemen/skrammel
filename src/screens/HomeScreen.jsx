@@ -66,7 +66,7 @@ export default function HomeScreen({
             onClick={skrammelpajNeedsMove ? onGoToSkrammelpaj : onPlaySkrammelpaj}
             style={{ ...styles.playButton, animation: skrammelpajHasActivity ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
           >
-            SkrammelPaj
+            Bokstavs-Duell
           </button>
         </div>
       )}

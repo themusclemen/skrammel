@@ -28,7 +28,7 @@ export default function TopplistorScreen({ onDailyLeaderboard, onHetsLeaderboard
       </button>
 
       <button onClick={onSkrammelpajLeaderboard} style={styles.card}>
-        <div style={styles.cardTitle}>🥧 SkrammelPaj</div>
+        <div style={styles.cardTitle}>🔤 Bokstavs-Duell</div>
         <div style={styles.cardDesc}>Rankat efter flest vunna dueller totalt</div>
       </button>
 

@@ -10,7 +10,7 @@ export default function SkrammelpajResultScreen({ won, endReason, opponentName, 
 
   return (
     <div style={styles.page}>
-      <div style={{ color: T.muted }}>Skrammelpaj mot {opponentName}</div>
+      <div style={{ color: T.muted }}>Bokstavs-Duell mot {opponentName}</div>
       <div style={{ ...styles.verdict, color: won ? T.accent : T.accent2 }}>{won ? "Du vann!" : "Du förlorade"}</div>
       <div style={{ color: T.muted, fontSize: "0.9rem" }}>{reasonText}</div>
 
@@ -25,7 +25,7 @@ export default function SkrammelpajResultScreen({ won, endReason, opponentName, 
       )}
 
       <div style={styles.navRow}>
-        <button onClick={onSkrammelpaj} style={styles.navButton}>Till Skrammelpaj</button>
+        <button onClick={onSkrammelpaj} style={styles.navButton}>Till Bokstavs-Duell</button>
         <button onClick={onHome} style={styles.navButton}>Till start</button>
       </div>
     </div>

@@ -33,7 +33,7 @@ export default function SkrammelpajMatchEndModal({ won, reason, opponentName, on
     <div style={styles.backdrop}>
       <div style={styles.card}>
         <div style={{ ...styles.title, color: won ? T.accent : T.accent2 }}>
-          {won ? "🥧 Du vann!" : "🥧 Du förlorade"}
+          {won ? "🔤 Du vann!" : "🔤 Du förlorade"}
         </div>
         <div style={styles.message}>{describeMatchEnd(reason, won, opponentName)}</div>
         <button onClick={onContinue} style={styles.continueButton}>Fortsätt</button>

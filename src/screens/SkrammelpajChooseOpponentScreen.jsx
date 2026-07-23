@@ -68,14 +68,14 @@ export default function SkrammelpajChooseOpponentScreen({
 
   return (
     <div style={styles.page}>
-      <h2 style={{ margin: 0, color: T.accent }}>🥧 Starta en Skrammelpaj</h2>
+      <h2 style={{ margin: 0, color: T.accent }}>🔤 Starta en Bokstavs-Duell</h2>
       <div style={{ color: T.muted, fontSize: "0.9rem" }}>Vem vill du utmana?</div>
 
       {error && <div style={styles.error}>{error}</div>}
 
       {presetOpponent && (
         <button onClick={handlePreset} disabled={busyId !== null} style={styles.presetButton}>
-          {busyId === "preset" ? "Utmanar…" : `🥧 Utmana ${presetOpponent.name}`}
+          {busyId === "preset" ? "Utmanar…" : `🔤 Utmana ${presetOpponent.name}`}
         </button>
       )}
 

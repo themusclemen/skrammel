@@ -78,7 +78,7 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   2026-07-21 även via hemskärmens "Topplistor"-väljare. Man kan
   utmana vem som helst på listan direkt, oavsett vänskap. Byggd
   2026-07-21.
-- **SkrammelPaj:** ett tredje spel, async 1-mot-1 precis som Blixt men
+- **Bokstavs-Duell (kodnamn Skrammelpaj):** ett tredje spel, async 1-mot-1 precis som Blixt men
   med en helt annan mekanik — två spelare turas om att bilda ord ur en
   **delad, krympande** bokstavspool (4 slumpade ord, 20-25 bokstäver,
   blandade) istället för att spela parallella oberoende rundor mot
@@ -102,7 +102,7 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   `architecture.md` för fullständig historik och efterföljande
   UX-fixar.
 - **Hemskärmens navigering omarbetad (2026-07-21):** alla tre spelen
-  (Dagens Skrammel, Blixt-Duell, SkrammelPaj) går nu via en delad
+  (Dagens Skrammel, Blixt-Duell, Bokstavs-Duell) går nu via en delad
   `GameInfoScreen` (regler + Tillbaka/Starta) innan man committar till
   att spela. Länkraden längst ner gick från fem länkar till två:
   **Topplistor** (ny väljarskärm som länkar till vart och ett av de tre

@@ -16,7 +16,7 @@ export default function SkrammelpajLeaderboardScreen({ user, onBack, onChallenge
 
   return (
     <div style={styles.page}>
-      <h2 style={{ margin: 0, color: T.accent }}>🥧 Topplista för Skrammelpaj</h2>
+      <h2 style={{ margin: 0, color: T.accent }}>🔤 Topplista för Bokstavs-Duell</h2>
       <div style={{ color: T.muted, fontSize: "0.85rem" }}>Rankat efter flest vunna matcher</div>
 
       {user && (
@@ -40,7 +40,7 @@ export default function SkrammelpajLeaderboardScreen({ user, onBack, onChallenge
       {!error && rows === null && <div style={{ color: T.muted }}>Laddar…</div>}
       {rows && rows.length === 0 && (
         <div style={{ color: T.muted }}>
-          {scope === "friends" ? "Ingen av dina vänner har spelat en skrammelpaj-match än." : "Ingen har spelat en skrammelpaj-match än."}
+          {scope === "friends" ? "Ingen av dina vänner har spelat en Bokstavs-Duell än." : "Ingen har spelat en Bokstavs-Duell än."}
         </div>
       )}
 
@@ -67,7 +67,7 @@ export default function SkrammelpajLeaderboardScreen({ user, onBack, onChallenge
       )}
 
       <div style={styles.navRow}>
-        <button onClick={onBack} style={styles.navButton}>Till Skrammelpaj</button>
+        <button onClick={onBack} style={styles.navButton}>Till Bokstavs-Duell</button>
       </div>
     </div>
   );

@@ -185,8 +185,8 @@ export default function SkrammelpajCpuScreen({ onHome }) {
 
   if (result) {
     const verdict = result.emptied
-      ? result.won ? "Du vann, eftersom du tog sista bokstaven! 🥧" : "CPU vann, eftersom den tog sista bokstaven!"
-      : result.won ? "Du vann mot CPU! 🥧" : "CPU vann";
+      ? result.won ? "Du vann, eftersom du tog sista bokstaven! 🔤" : "CPU vann, eftersom den tog sista bokstaven!"
+      : result.won ? "Du vann mot CPU! 🔤" : "CPU vann";
     const reasonText = result.emptied
       ? null
       : result.reason === "no_words_left"
@@ -231,7 +231,7 @@ export default function SkrammelpajCpuScreen({ onHome }) {
         `}</style>
 
         <div style={{ ...styles.thinking, animation: phase === "thinking" ? "skrammelpajPulse 1.4s ease-in-out infinite" : "none" }}>
-          🥧 {caption}
+          🔤 {caption}
         </div>
 
         {phase === "thinking" ? (

@@ -99,7 +99,7 @@ function ChallengeGroup({ opponentName, challenges, renderActions, alwaysExpande
         <div style={styles.groupList}>
           {challenges.map((c, i) => (
             <div key={c.id} style={styles.row}>
-              <span style={styles.groupRowLabel}>Paj {i + 1}</span>
+              <span style={styles.groupRowLabel}>Match {i + 1}</span>
               <div style={styles.rowActions}>{renderActions(c)}</div>
             </div>
           ))}
@@ -159,7 +159,7 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
 
   return (
     <div style={styles.page}>
-      <h2 style={{ margin: 0, color: T.accent }}>🥧 Skrammelpaj</h2>
+      <h2 style={{ margin: 0, color: T.accent }}>🔤 Bokstavs-Duell</h2>
       <div style={{ color: T.muted, fontSize: "0.85rem" }}>
         {openCount}/{SKRAMMELPAJ_MAX_OPEN_CHALLENGES} matcher pågår
       </div>
@@ -234,7 +234,7 @@ export default function SkrammelpajScreen({ user, challenges, onRespond, onPlay,
       )}
 
       <button onClick={onPlayNew} disabled={atCap} style={{ ...styles.playButton, opacity: atCap ? 0.5 : 1 }}>
-        {atCap ? "Max antal matcher nått" : "Starta en ny Skrammelpaj"}
+        {atCap ? "Max antal matcher nått" : "Starta en ny Bokstavs-Duell"}
       </button>
 
       <div style={styles.navRow}>
