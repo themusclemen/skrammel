@@ -56,7 +56,7 @@ export default function HomeScreen({
             onClick={blixtNeedsMove ? onGoToBlixt : onPlayBlixt}
             style={{ ...styles.playButton, animation: blixtHasActivity ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
           >
-            BlixtSkrammel
+            Blixt-Duell
           </button>
         </div>
       )}

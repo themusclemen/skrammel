@@ -702,7 +702,7 @@ flera omgångar samma dag:
 - **Alla tre spelen har nu samma mönster:** knapp på hemskärmen → en
   `GameInfoScreen.jsx` (delad komponent, ny) som förklarar spelet och
   ger ett tydligt Tillbaka/Starta-val, INNAN man committar till att
-  spela. Knapparna heter **"Dagens Skrammel"**, **"BlixtSkrammel"**,
+  spela. Knapparna heter **"Dagens Skrammel"**, **"Blixt-Duell"**,
   **"SkrammelPaj"** (kortare labels; "Dagens Skrammel" testades kort
   som bara "Skrammel" men ändrades tillbaka på användarens begäran).
   - Blixts befintliga `GameIntroModal`-regelruta (visas precis innan

@@ -102,7 +102,7 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   `architecture.md` för fullständig historik och efterföljande
   UX-fixar.
 - **Hemskärmens navigering omarbetad (2026-07-21):** alla tre spelen
-  (Dagens Skrammel, BlixtSkrammel, SkrammelPaj) går nu via en delad
+  (Dagens Skrammel, Blixt-Duell, SkrammelPaj) går nu via en delad
   `GameInfoScreen` (regler + Tillbaka/Starta) innan man committar till
   att spela. Länkraden längst ner gick från fem länkar till två:
   **Topplistor** (ny väljarskärm som länkar till vart och ett av de tre

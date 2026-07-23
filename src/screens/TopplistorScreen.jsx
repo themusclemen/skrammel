@@ -23,7 +23,7 @@ export default function TopplistorScreen({ onDailyLeaderboard, onHetsLeaderboard
       </button>
 
       <button onClick={onBlixtLeaderboard} style={styles.card}>
-        <div style={styles.cardTitle}>⚡ BlixtSkrammel</div>
+        <div style={styles.cardTitle}>⚡ Blixt-Duell</div>
         <div style={styles.cardDesc}>Rankat efter flest vunna dueller totalt</div>
       </button>
 

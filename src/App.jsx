@@ -380,7 +380,7 @@ export default function App() {
     setScreen("blixt-play");
   }, []);
 
-  // Hemskärmens "BlixtSkrammel"-knapp går via en förklaringsskärm
+  // Hemskärmens "Blixt-Duell"-knapp går via en förklaringsskärm
   // (GameInfoScreen) innan själva rundan — skipIntro=true på GameScreen
   // efteråt så spelaren inte förklaras samma regler två gånger i rad.
   const handleStartBlixtFromInfo = useCallback(async () => {
@@ -791,7 +791,7 @@ export default function App() {
   if (screen === "blixt-info") {
     return (
       <GameInfoScreen
-        title="⚡ BlixtSkrammel"
+        title="⚡ Blixt-Duell"
         description={[
           "Du spelar en snabb 2-minutersrunda själv och försöker hitta så många ord som möjligt ur ett slumpat ord.",
           "Efteråt utmanar du en vän eller en slumpad motståndare med din poäng — den som hittar flest poäng vinner duellen.",
