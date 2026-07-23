@@ -6,26 +6,18 @@ export default function HomeScreen({
   pendingSkrammelpajCount = 0, pendingSkrammelpajInviteCount = 0, skrammelpajUpdatesCount = 0,
   onPlay, onPlayHets, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
-  // Slår ihop "väntar på dig"/"uppdaterad" till EN banner per spel (drag att
-  // göra vinner över nya utmaningar, som i sin tur vinner över "uppdaterad")
-  // — fyra separata banners kändes för mycket information på en gång.
-  // pendingBlixtCount/pendingSkrammelpajCount räknar bara faktiska drag
-  // (your_turn) — inbjudningar som väntar på svar räknas separat så
-  // badgen inte blåses upp med matcher man inte ska spela ett drag i.
-  const blixtBannerText = pendingBlixtCount > 0
-    ? `⚡ ${pendingBlixtCount} blixtutmaning${pendingBlixtCount > 1 ? "ar" : ""} väntar på ditt drag!`
-    : pendingBlixtInviteCount > 0
-    ? `📨 ${pendingBlixtInviteCount} ny${pendingBlixtInviteCount > 1 ? "a" : ""} blixtutmaning${pendingBlixtInviteCount > 1 ? "ar" : ""} väntar på svar!`
-    : blixtUpdatesCount > 0
-    ? `🔔 ${blixtUpdatesCount} blixtmatch${blixtUpdatesCount > 1 ? "er" : ""} uppdaterad${blixtUpdatesCount > 1 ? "e" : ""}`
-    : null;
-  const skrammelpajBannerText = pendingSkrammelpajCount > 0
-    ? `🥧 ${pendingSkrammelpajCount} skrammelpaj${pendingSkrammelpajCount > 1 ? "-matcher" : "-match"} väntar på ditt drag!`
-    : pendingSkrammelpajInviteCount > 0
-    ? `📨 ${pendingSkrammelpajInviteCount} ny${pendingSkrammelpajInviteCount > 1 ? "a" : ""} skrammelpaj-utmaning${pendingSkrammelpajInviteCount > 1 ? "ar" : ""} väntar på svar!`
-    : skrammelpajUpdatesCount > 0
-    ? `🔔 ${skrammelpajUpdatesCount} skrammelpaj-match${skrammelpajUpdatesCount > 1 ? "er" : ""} uppdaterad${skrammelpajUpdatesCount > 1 ? "e" : ""}`
-    : null;
+  // Aktivitet på Blixt/Skrammelpaj visas genom att blinka på själva
+  // spelknappen (samma mönster som "Dagens Skrammel") istället för en
+  // separat notisbanner — mindre att läsa, tydligare vart man ska trycka.
+  // Drag att göra vinner över nya utmaningar, som i sin tur vinner över
+  // "uppdaterad". pendingBlixtCount/pendingSkrammelpajCount räknar bara
+  // faktiska drag (your_turn) — inbjudningar som väntar på svar räknas
+  // separat så aktiviteten inte blåses upp med matcher man inte ska spela
+  // ett drag i.
+  const blixtHasActivity = pendingBlixtCount > 0 || pendingBlixtInviteCount > 0 || blixtUpdatesCount > 0;
+  const blixtNeedsMove = pendingBlixtCount > 0 || pendingBlixtInviteCount > 0;
+  const skrammelpajHasActivity = pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0 || skrammelpajUpdatesCount > 0;
+  const skrammelpajNeedsMove = pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0;
 
   return (
     <div style={styles.page}>
@@ -50,24 +42,6 @@ export default function HomeScreen({
         </div>
       )}
 
-      {user && blixtBannerText && (
-        <button
-          onClick={onGoToBlixt}
-          style={pendingBlixtCount > 0 || pendingBlixtInviteCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}
-        >
-          {blixtBannerText}
-        </button>
-      )}
-
-      {user && skrammelpajBannerText && (
-        <button
-          onClick={onGoToSkrammelpaj}
-          style={pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0 ? styles.blixtBanner : styles.blixtUpdateBanner}
-        >
-          {skrammelpajBannerText}
-        </button>
-      )}
-
       <div style={styles.playButtonBorder}>
         <button onClick={onPlay} style={{ ...styles.playButton, animation: playedToday ? "none" : "skrammelBlink 1.2s steps(1, end) infinite" }}>
           Dagens Skrammel
@@ -78,12 +52,22 @@ export default function HomeScreen({
       </div>
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlayBlixt} style={styles.playButton}>BlixtSkrammel</button>
+          <button
+            onClick={blixtNeedsMove ? onGoToBlixt : onPlayBlixt}
+            style={{ ...styles.playButton, animation: blixtHasActivity ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
+          >
+            BlixtSkrammel
+          </button>
         </div>
       )}
       {user && (
         <div style={styles.playButtonBorder}>
-          <button onClick={onPlaySkrammelpaj} style={styles.playButton}>SkrammelPaj</button>
+          <button
+            onClick={skrammelpajNeedsMove ? onGoToSkrammelpaj : onPlaySkrammelpaj}
+            style={{ ...styles.playButton, animation: skrammelpajHasActivity ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
+          >
+            SkrammelPaj
+          </button>
         </div>
       )}
       <div style={styles.secondaryRow}>
@@ -140,17 +124,6 @@ const styles = {
     display: "block", width: "100%",
     padding: "0.9rem 1.6rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1rem", cursor: "pointer",
-  },
-  blixtBanner: {
-    padding: "0.6rem 1rem", borderRadius: 10, border: "none", cursor: "pointer",
-    background: T.accent2, color: "#fff", fontWeight: 700, fontSize: "0.9rem",
-    animation: "skrammelBlink 1.2s steps(1, end) infinite",
-  },
-  // Lugnare än blixtBanner (ingen blink) — det här är bara ett resultat
-  // att kika på, inget som väntar på en åtgärd från spelaren.
-  blixtUpdateBanner: {
-    padding: "0.6rem 1rem", borderRadius: 10, border: `1px solid ${T.border}`, cursor: "pointer",
-    background: T.surface, color: T.accent, fontWeight: 700, fontSize: "0.9rem",
   },
   statsRow: { display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" },
   statChip: {
