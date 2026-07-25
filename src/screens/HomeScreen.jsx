@@ -47,26 +47,22 @@ export default function HomeScreen({
       <div style={styles.playButtonBorder}>
         <button onClick={onPlayHets} style={styles.playButton}>Solo-Hets</button>
       </div>
-      {user && (
-        <div style={styles.playButtonBorder}>
-          <button
-            onClick={blixtNeedsMove ? onGoToBlixt : onPlayBlixt}
-            style={{ ...styles.playButton, animation: blixtNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
-          >
-            Blixt-Duell{blixtHasUpdateOnly && " •"}
-          </button>
-        </div>
-      )}
-      {user && (
-        <div style={styles.playButtonBorder}>
-          <button
-            onClick={skrammelpajNeedsMove ? onGoToSkrammelpaj : onPlaySkrammelpaj}
-            style={{ ...styles.playButton, animation: skrammelpajNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
-          >
-            Bokstavs-Duell{skrammelpajHasUpdateOnly && " •"}
-          </button>
-        </div>
-      )}
+      <div style={styles.playButtonBorder}>
+        <button
+          onClick={blixtNeedsMove ? onGoToBlixt : onPlayBlixt}
+          style={{ ...styles.playButton, animation: blixtNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
+        >
+          Blixt-Duell{blixtHasUpdateOnly && " •"}
+        </button>
+      </div>
+      <div style={styles.playButtonBorder}>
+        <button
+          onClick={skrammelpajNeedsMove ? onGoToSkrammelpaj : onPlaySkrammelpaj}
+          style={{ ...styles.playButton, animation: skrammelpajNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
+        >
+          Bokstavs-Duell{skrammelpajHasUpdateOnly && " •"}
+        </button>
+      </div>
       <div style={styles.secondaryRow}>
         <button onClick={onTopplistor} style={styles.secondaryButton}>Topplistor</button>
         {user && <button onClick={onFriends} style={styles.secondaryButton}>Vänner</button>}

@@ -8,17 +8,21 @@ import { fetchFriends } from "../api/friends.js";
 // mellan två specifika spelare. onChallengeFriend/onChallengeRandom skapar
 // utmaningen (App.jsx) och kan avvisas av RLS (mottagarens 20-tak nått).
 export default function SkrammelpajChooseOpponentScreen({
-  user, presetOpponent, onChallengeFriend, onChallengeRandom, onPlayCpu, onBack,
+  user, presetOpponent, onChallengeFriend, onChallengeRandom, onPlayCpu, onRequireLogin, onBack,
 }) {
   const [friends, setFriends] = useState(null);
   const [busyId, setBusyId] = useState(null); // "random", "preset" eller ett friendId
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Gäster kan nå den här skärmen för CPU-läget — utan konto finns inga
+    // vänner att hämta.
+    if (!user) { setFriends([]); return; }
     fetchFriends(user.id).then(setFriends).catch(() => setFriends([]));
-  }, [user.id]);
+  }, [user]);
 
   const handleFriend = async (friendId, friendName) => {
+    if (!user) return onRequireLogin();
     setBusyId(friendId);
     setError(null);
     try {
@@ -31,6 +35,7 @@ export default function SkrammelpajChooseOpponentScreen({
   };
 
   const handleRandom = async () => {
+    if (!user) return onRequireLogin();
     setBusyId("random");
     setError(null);
     try {
@@ -43,6 +48,7 @@ export default function SkrammelpajChooseOpponentScreen({
   };
 
   const handlePreset = async () => {
+    if (!user) return onRequireLogin();
     setBusyId("preset");
     setError(null);
     try {
@@ -87,13 +93,20 @@ export default function SkrammelpajChooseOpponentScreen({
         {busyId === "cpu" ? "Startar…" : "🤖 Spela mot CPU (räknas inte till topplistan)"}
       </button>
 
-      {friends === null && <div style={{ color: T.muted }}>Laddar vänner…</div>}
-      {friends && friends.length === 0 && (
+      {!user && (
+        <div style={{ color: T.muted, fontSize: "0.85rem" }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); onRequireLogin(); }} style={{ color: T.accent }}>
+            Logga in
+          </a>{" "}för att utmana en vän eller slumpa motståndare.
+        </div>
+      )}
+      {user && friends === null && <div style={{ color: T.muted }}>Laddar vänner…</div>}
+      {user && friends && friends.length === 0 && (
         <div style={{ color: T.muted, fontSize: "0.85rem" }}>
           Inga vänner att utmana — testa slumpa eller CPU istället.
         </div>
       )}
-      {friends && friends.length > 0 && (
+      {user && friends && friends.length > 0 && (
         <div style={styles.list}>
           {friends.map((f) => (
             <div key={f.friendshipId} style={styles.row}>

@@ -818,7 +818,12 @@ export default function App() {
     );
   }
 
-  if (screen === "blixt-choose" && blixtDraftResult && user) {
+  if (screen === "blixt-choose" && blixtDraftResult) {
+    // Soloomgången kan spelas som gäst, men en duell behöver ett konto att
+    // knyta utmaningen till. Draften ligger kvar i state under inloggningen,
+    // så när user-lyssnaren (se ovan) fyller i user renderas skärmen nedanför
+    // automatiskt utan någon separat "återuppta"-logik.
+    if (!user) return <AuthScreen onDone={() => {}} />;
     return (
       <BlixtChooseOpponentScreen
         user={user}
@@ -898,7 +903,11 @@ export default function App() {
     );
   }
 
-  if (screen === "skrammelpaj-choose" && user) {
+  if (screen === "skrammelpaj-choose") {
+    // Till skillnad från Blixt finns ingen fristående solorunda här — CPU-
+    // läget på den här skärmen ÄR gästens motsvarighet, så hela skärmen
+    // kan inte gatas bakom inloggning. Utmana vän/slumpa kräver konto och
+    // gatas istället inne i komponenten (onRequireLogin).
     return (
       <SkrammelpajChooseOpponentScreen
         user={user}
@@ -906,6 +915,7 @@ export default function App() {
         onChallengeFriend={handleChallengeSkrammelpajFriend}
         onChallengeRandom={handleChallengeSkrammelpajRandom}
         onPlayCpu={handlePlaySkrammelpajCpu}
+        onRequireLogin={() => navigate("auth")}
         onBack={handleSkipSkrammelpajChallenge}
       />
     );
