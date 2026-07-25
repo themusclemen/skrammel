@@ -6,18 +6,15 @@ export default function HomeScreen({
   pendingSkrammelpajCount = 0, pendingSkrammelpajInviteCount = 0, skrammelpajUpdatesCount = 0,
   onPlay, onPlayHets, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
-  // Aktivitet på Blixt/Skrammelpaj visas genom att blinka på själva
-  // spelknappen (samma mönster som "Dagens Skrammel") istället för en
-  // separat notisbanner — mindre att läsa, tydligare vart man ska trycka.
-  // Drag att göra vinner över nya utmaningar, som i sin tur vinner över
-  // "uppdaterad". pendingBlixtCount/pendingSkrammelpajCount räknar bara
-  // faktiska drag (your_turn) — inbjudningar som väntar på svar räknas
-  // separat så aktiviteten inte blåses upp med matcher man inte ska spela
-  // ett drag i.
-  const blixtHasActivity = pendingBlixtCount > 0 || pendingBlixtInviteCount > 0 || blixtUpdatesCount > 0;
+  // Knappen blinkar bara när något faktiskt väntar på spelaren (eget drag
+  // eller obesvarad inbjudan). En match som bara uppdaterats (t.ex. blivit
+  // klar) är inget som kräver en åtgärd, så den får en lugn liten "•"
+  // istället för blink — annars ser en avslutad match ut som om det är
+  // ens tur.
   const blixtNeedsMove = pendingBlixtCount > 0 || pendingBlixtInviteCount > 0;
-  const skrammelpajHasActivity = pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0 || skrammelpajUpdatesCount > 0;
+  const blixtHasUpdateOnly = !blixtNeedsMove && blixtUpdatesCount > 0;
   const skrammelpajNeedsMove = pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0;
+  const skrammelpajHasUpdateOnly = !skrammelpajNeedsMove && skrammelpajUpdatesCount > 0;
 
   return (
     <div style={styles.page}>
@@ -54,9 +51,9 @@ export default function HomeScreen({
         <div style={styles.playButtonBorder}>
           <button
             onClick={blixtNeedsMove ? onGoToBlixt : onPlayBlixt}
-            style={{ ...styles.playButton, animation: blixtHasActivity ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
+            style={{ ...styles.playButton, animation: blixtNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
           >
-            Blixt-Duell
+            Blixt-Duell{blixtHasUpdateOnly && " •"}
           </button>
         </div>
       )}
@@ -64,9 +61,9 @@ export default function HomeScreen({
         <div style={styles.playButtonBorder}>
           <button
             onClick={skrammelpajNeedsMove ? onGoToSkrammelpaj : onPlaySkrammelpaj}
-            style={{ ...styles.playButton, animation: skrammelpajHasActivity ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
+            style={{ ...styles.playButton, animation: skrammelpajNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
           >
-            Bokstavs-Duell
+            Bokstavs-Duell{skrammelpajHasUpdateOnly && " •"}
           </button>
         </div>
       )}
