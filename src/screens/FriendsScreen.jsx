@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { T } from "../theme.js";
 import { useShare } from "../hooks/useShare.js";
 import {
@@ -6,19 +6,32 @@ import {
   sendFriendRequest, fetchIncomingRequests, acceptFriendRequest,
 } from "../api/friends.js";
 import { searchProfiles, MIN_SEARCH_QUERY_LENGTH } from "../api/profile.js";
+import { classifyChallenge as classifyBlixtChallenge } from "../api/blixt.js";
+import { classifyChallenge as classifySkrammelpajChallenge } from "../api/skrammelpaj.js";
+import { computeOngoingByOpponent } from "../game/matchActivity.js";
 
-function FriendRow({ friend, onRemove }) {
+function FriendRow({ friend, onSelect, activity }) {
+  const needsAction = activity?.needsAction ?? false;
+  const ongoingCount = activity?.ongoingCount ?? 0;
   return (
-    <div style={styles.row}>
+    <button
+      onClick={() => onSelect(friend)}
+      style={{
+        ...styles.row, ...styles.friendRowButton,
+        animation: needsAction ? "skrammelBlink 1.2s steps(1, end) infinite" : "none",
+      }}
+    >
       <span>{friend.friendName}</span>
-      <div style={styles.rowActions}>
-        <button onClick={() => onRemove(friend.friendshipId)} style={styles.smallButtonMuted}>Ta bort</button>
-      </div>
-    </div>
+      <span style={{ color: T.muted, fontSize: "0.8rem" }}>
+        {ongoingCount > 0 ? `${ongoingCount} match${ongoingCount > 1 ? "er" : ""} på gång` : "Inga matcher på gång"}
+      </span>
+    </button>
   );
 }
 
-export default function FriendsScreen({ user, displayName, onBack }) {
+export default function FriendsScreen({
+  user, displayName, myBlixtChallenges, mySkrammelpajChallenges, onBack, onSelectFriend,
+}) {
   const [friends, setFriends] = useState(null);
   const [error, setError] = useState(null);
   const { share, copied } = useShare();
@@ -67,13 +80,26 @@ export default function FriendsScreen({ user, displayName, onBack }) {
     return () => clearTimeout(timer);
   }, [query, friends, user.id]);
 
+  // Räknar pågående (ej avslutade) matcher per vän, över båda spelen, och
+  // om någon av dem faktiskt kräver ett drag från mig (blinkning) — se
+  // game/matchActivity.js.
+  const friendActivity = useMemo(() => {
+    const blixt = computeOngoingByOpponent(myBlixtChallenges, user.id, classifyBlixtChallenge);
+    const skrammelpaj = computeOngoingByOpponent(mySkrammelpajChallenges, user.id, classifySkrammelpajChallenge);
+    const merged = new Map();
+    for (const map of [blixt, skrammelpaj]) {
+      for (const [opponentId, activity] of map) {
+        const entry = merged.get(opponentId) ?? { ongoingCount: 0, needsAction: false };
+        entry.ongoingCount += activity.ongoingCount;
+        entry.needsAction = entry.needsAction || activity.needsAction;
+        merged.set(opponentId, entry);
+      }
+    }
+    return merged;
+  }, [myBlixtChallenges, mySkrammelpajChallenges, user.id]);
+
   const handleInvite = () => {
     share(`${inviterName} bjuder in dig att bli vän i Skrammel!\n${buildInviteUrl(user.id, inviterName)}`);
-  };
-
-  const handleRemove = async (friendshipId) => {
-    await removeFriendship(friendshipId);
-    loadFriends();
   };
 
   const handleSendRequest = async (targetId, targetName) => {
@@ -105,6 +131,12 @@ export default function FriendsScreen({ user, displayName, onBack }) {
 
   return (
     <div style={styles.page}>
+      <style>{`
+        @keyframes skrammelBlink {
+          0%, 49% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
+      `}</style>
       <h2 style={{ margin: 0, color: T.accent }}>Vänner</h2>
 
       <button onClick={handleInvite} style={styles.inviteButton}>
@@ -184,7 +216,10 @@ export default function FriendsScreen({ user, displayName, onBack }) {
       {friends && friends.length > 0 && (
         <div style={styles.list}>
           {friends.map((f) => (
-            <FriendRow key={f.friendshipId} friend={f} onRemove={handleRemove} />
+            <FriendRow
+              key={f.friendshipId} friend={f} onSelect={onSelectFriend}
+              activity={friendActivity.get(f.friendId)}
+            />
           ))}
         </div>
       )}
@@ -218,6 +253,9 @@ const styles = {
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`,
   },
   rowActions: { display: "flex", gap: "0.4rem" },
+  friendRowButton: {
+    width: "100%", fontFamily: "inherit", fontSize: "1rem", color: T.text, cursor: "pointer",
+  },
   smallButton: {
     padding: "0.4rem 0.7rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer",

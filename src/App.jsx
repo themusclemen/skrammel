@@ -45,6 +45,7 @@ import AuthScreen from "./screens/AuthScreen.jsx";
 import AdminWordsScreen from "./screens/AdminWordsScreen.jsx";
 import BlixtWordsAdminScreen from "./screens/BlixtWordsAdminScreen.jsx";
 import FriendsScreen from "./screens/FriendsScreen.jsx";
+import FriendDetailScreen from "./screens/FriendDetailScreen.jsx";
 import BlixtScreen from "./screens/BlixtScreen.jsx";
 import BlixtChooseOpponentScreen from "./screens/BlixtChooseOpponentScreen.jsx";
 import BlixtResultScreen from "./screens/BlixtResultScreen.jsx";
@@ -96,6 +97,7 @@ export default function App() {
   // till topplistan.
   const [isReplay, setIsReplay] = useState(false);
   const [leaderboardDate, setLeaderboardDate] = useState(null);
+  const [selectedFriend, setSelectedFriend] = useState(null); // { id, name } — se FriendDetailScreen
   const [lastResult, setLastResult] = useState(null); // { score, words }
   // Hets (solo tidsrusning, se game/hetsWords.js): spelarens eget rekord,
   // hämtat INNAN en runda startar så det kan visas som ett ständigt mål
@@ -1064,7 +1066,33 @@ export default function App() {
 
   if (screen === "friends" && user) {
     return (
-      <FriendsScreen user={user} displayName={displayName} onBack={() => navigate("home")} />
+      <FriendsScreen
+        user={user}
+        displayName={displayName}
+        myBlixtChallenges={myBlixtChallenges}
+        mySkrammelpajChallenges={mySkrammelpajChallenges}
+        onBack={() => navigate("home")}
+        onSelectFriend={(friend) => {
+          setSelectedFriend({ id: friend.friendId, name: friend.friendName });
+          navigate("friend-detail");
+        }}
+      />
+    );
+  }
+
+  if (screen === "friend-detail" && selectedFriend && user) {
+    return (
+      <FriendDetailScreen
+        user={user}
+        friend={selectedFriend}
+        myBlixtChallenges={myBlixtChallenges}
+        mySkrammelpajChallenges={mySkrammelpajChallenges}
+        onChallengeBlixt={() => handleChallengeFromLeaderboard(selectedFriend.id, selectedFriend.name)}
+        onChallengeSkrammelpaj={() => handleChallengeSkrammelpajFromLeaderboard(selectedFriend.id, selectedFriend.name)}
+        onGoToBlixt={goToBlixt}
+        onGoToSkrammelpaj={goToSkrammelpaj}
+        onBack={() => navigate("friends")}
+      />
     );
   }
 
