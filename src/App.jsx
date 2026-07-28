@@ -8,7 +8,7 @@ import { computeStreak } from "./game/streak.js";
 import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
-import { parseInviteFromLocation, confirmFriendship } from "./api/friends.js";
+import { parseInviteFromLocation, confirmFriendship, fetchIncomingRequests } from "./api/friends.js";
 import { ensureProfileExists } from "./api/profile.js";
 import { fetchRandomOpponent } from "./api/scores.js";
 import {
@@ -153,6 +153,18 @@ export default function App() {
     if (!user || !displayName) return;
     ensureProfileExists(user.id, displayName).catch(() => {});
   }, [user, displayName]);
+
+  // Hemskärmens Vänner-knapp blinkar när det finns obesvarade
+  // vänförfrågningar (se HomeScreen) — hämtas på inloggning och varje
+  // gång man är tillbaka på hemskärmen, så en accepterad/avvisad
+  // förfrågan på Vänner-sidan speglas direkt när man går tillbaka.
+  const [incomingFriendRequests, setIncomingFriendRequests] = useState([]);
+  const refreshFriendRequests = useCallback(async () => {
+    if (!user) { setIncomingFriendRequests([]); return; }
+    setIncomingFriendRequests(await fetchIncomingRequests(user.id));
+  }, [user]);
+  useEffect(() => { refreshFriendRequests(); }, [refreshFriendRequests]);
+  useEffect(() => { if (screen === "home") refreshFriendRequests(); }, [screen, refreshFriendRequests]);
 
   useEffect(() => {
     loadWordList().then(() => setWordListReady(true));
@@ -1096,6 +1108,7 @@ export default function App() {
         pendingSkrammelpajCount={pendingSkrammelpajCount}
         pendingSkrammelpajInviteCount={pendingSkrammelpajInviteCount}
         skrammelpajUpdatesCount={skrammelpajUpdatesCount}
+        pendingFriendRequestCount={incomingFriendRequests.length}
         onPlay={() => navigate("daily-info")}
         onPlayHets={goToHetsInfo}
         onPlayBlixt={() => navigate("blixt-info")}

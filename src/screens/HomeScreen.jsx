@@ -4,6 +4,7 @@ export default function HomeScreen({
   user, displayName, streak, bestLevel, playedToday = false,
   pendingBlixtCount = 0, pendingBlixtInviteCount = 0, blixtUpdatesCount = 0,
   pendingSkrammelpajCount = 0, pendingSkrammelpajInviteCount = 0, skrammelpajUpdatesCount = 0,
+  pendingFriendRequestCount = 0,
   onPlay, onPlayHets, onPlayBlixt, onPlaySkrammelpaj, onTopplistor, onFriends, onGoToBlixt, onGoToSkrammelpaj, onLogin, onSignOut,
 }) {
   // Knappen blinkar bara när något faktiskt väntar på spelaren (eget drag
@@ -15,6 +16,7 @@ export default function HomeScreen({
   const blixtHasUpdateOnly = !blixtNeedsMove && blixtUpdatesCount > 0;
   const skrammelpajNeedsMove = pendingSkrammelpajCount > 0 || pendingSkrammelpajInviteCount > 0;
   const skrammelpajHasUpdateOnly = !skrammelpajNeedsMove && skrammelpajUpdatesCount > 0;
+  const friendsNeedsAttention = pendingFriendRequestCount > 0;
 
   return (
     <div style={styles.page}>
@@ -65,7 +67,17 @@ export default function HomeScreen({
       </div>
       <div style={styles.secondaryRow}>
         <button onClick={onTopplistor} style={styles.secondaryButton}>Topplistor</button>
-        {user && <button onClick={onFriends} style={styles.secondaryButton}>Vänner</button>}
+        {user && (
+          <button
+            onClick={onFriends}
+            style={{
+              ...styles.secondaryButton,
+              animation: friendsNeedsAttention ? "skrammelBlink 1.2s steps(1, end) infinite" : "none",
+            }}
+          >
+            Vänner
+          </button>
+        )}
       </div>
 
       <div style={styles.authRow}>
