@@ -407,6 +407,19 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
    dynamisk poängdata). `LeaderboardScreen.jsx` har en ny "Global"/
    "Vänner"-flik (`fetchFriendsLeaderboard` i `src/api/friends.js`,
    samma `scores`-tabell, filtrerad på vän-id:n). Ingen ny spellogik.
+7. **Ordlistekvalitet** — säkerställ att bara vettiga svenska ord kan
+   dyka upp som giltiga fynd (dvs. städa `public/ordlista.txt` för
+   ovanliga böjningsformer/konstigheter, bygger vidare på punkt 3 ovan).
+8. **Dela/utmana mot befintliga spelare** — säkerställ att man kan dela
+   och utmana resultat mot folk som redan är spelare (bygger vidare på
+   virality-planen i `~/.claude/plans/steady-chasing-sedgewick.md`, se
+   [[project-skrammel-concept]]).
+9. **Viktigast: städa upp i menyerna** — gör det enklare att se på ett
+   ögonkast om man har en väntande utmaning eller vad som är på gång,
+   över alla tre spelen (Blixt-Duell, Bokstavs-Duell, m.fl.).
+
+Punkt 7–9 tillagda 2026-07-26 som förarbete inför App Store/Google
+Play-lanseringen (se "Native app-plan" nedan) — inte påbörjade än.
 
 ---
 
