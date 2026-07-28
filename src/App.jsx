@@ -55,10 +55,20 @@ import SkrammelpajCpuScreen from "./screens/SkrammelpajCpuScreen.jsx";
 import SkrammelpajResultScreen from "./screens/SkrammelpajResultScreen.jsx";
 import SkrammelpajLeaderboardScreen from "./screens/SkrammelpajLeaderboardScreen.jsx";
 import FriendInviteModal from "./components/FriendInviteModal.jsx";
+import TopNavIcons from "./components/TopNavIcons.jsx";
+import SettingsScreen from "./screens/SettingsScreen.jsx";
 
 // Prefix för matchSeen.js — skiljer de två spelens lokala "sedd status"-lagring åt.
 const BLIXT_SEEN_PREFIX = "skrammel_blixt_seen_";
 const SKRAMMELPAJ_SEEN_PREFIX = "skrammel_skrammelpaj_seen_";
+
+// Skärmar med en tickande klocka — hus/kugghjul-ikonerna (TopNavIcons) döljs
+// här, så att bara "..."-menyns egen "Är du säker?"-bekräftelse kan avsluta
+// en pågående runda (annars kunde man hoppa hem/till inställningar och
+// kringgå den bekräftelsen).
+const GAMEPLAY_SCREENS = new Set([
+  "game", "hets-play", "blixt-play", "blixt-respond-play", "skrammelpaj-play", "skrammelpaj-cpu",
+]);
 
 function pad(n) { return String(n).padStart(2, "0"); }
 
@@ -708,6 +718,7 @@ export default function App() {
     return isBlixtAdminRoute ? <BlixtWordsAdminScreen /> : <AdminWordsScreen />;
   }
 
+  function renderScreen() {
   if (screen === "auth") {
     return <AuthScreen onDone={() => navigate("home")} />;
   }
@@ -1057,6 +1068,11 @@ export default function App() {
     );
   }
 
+  if (screen === "settings") {
+    if (!user) return <AuthScreen onDone={() => {}} />;
+    return <SettingsScreen user={user} displayName={displayName} onBack={() => navigate("home")} />;
+  }
+
   return (
     <>
       <HomeScreen
@@ -1089,6 +1105,16 @@ export default function App() {
           onCancel={handleCancelInvite}
         />
       )}
+    </>
+  );
+  }
+
+  return (
+    <>
+      {!GAMEPLAY_SCREENS.has(screen) && (
+        <TopNavIcons user={user} onHome={() => navigate("home")} onSettings={() => navigate("settings")} />
+      )}
+      {renderScreen()}
     </>
   );
 }
