@@ -68,16 +68,20 @@ create policy "Users can upsert their own profile"
   with check (auth.uid() = id);
 
 
--- Vänskap bekräftas genom att öppna en delad inbjudningslänk (bär bara
--- requesterns user-id, ingen token) — en rad = en bekräftad vänskap,
--- skriven av den som bekräftar (addressee). user_a/user_b (minsta/största
--- uuid) + unique förhindrar dubbletter oavsett vem som bjöd in vem.
+-- Vänskap bekräftas antingen genom att öppna en delad inbjudningslänk (bär
+-- bara requesterns user-id, ingen token — raden skrivs direkt som
+-- "accepted" av mottagaren som öppnar länken), eller genom en sök-baserad
+-- förfrågan (requestern skapar en "pending"-rad, mottagaren
+-- accepterar/avvisar den senare på Vänner-sidan). user_a/user_b
+-- (minsta/största uuid) + unique förhindrar dubbletter oavsett riktning
+-- eller väg in.
 create table friendships (
   id uuid primary key default gen_random_uuid(),
   requester_id uuid not null references auth.users(id),
   requester_display_name text not null,
   addressee_id uuid not null references auth.users(id),
   addressee_display_name text not null,
+  status text not null default 'accepted' check (status in ('pending', 'accepted')),
   created_at timestamptz not null default now(),
   user_a uuid generated always as (least(requester_id, addressee_id)) stored,
   user_b uuid generated always as (greatest(requester_id, addressee_id)) stored,
@@ -93,7 +97,16 @@ create policy "Involved users can read their friendships"
 
 create policy "Addressee confirms a friendship by inserting the row"
   on friendships for insert
-  with check (auth.uid() = addressee_id);
+  with check (auth.uid() = addressee_id and status = 'accepted');
+
+create policy "Requester can send a pending friend request"
+  on friendships for insert
+  with check (auth.uid() = requester_id and status = 'pending');
+
+create policy "Addressee can accept a pending friend request"
+  on friendships for update
+  using (auth.uid() = addressee_id and status = 'pending')
+  with check (auth.uid() = addressee_id and status = 'accepted');
 
 create policy "Either side can remove a friendship"
   on friendships for delete

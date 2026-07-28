@@ -9,6 +9,7 @@ import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
 import { parseInviteFromLocation, confirmFriendship } from "./api/friends.js";
+import { ensureProfileExists } from "./api/profile.js";
 import { fetchRandomOpponent } from "./api/scores.js";
 import {
   pickBlixtWord, createChallenge, respondToChallenge, submitBlixtScore,
@@ -144,6 +145,14 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Konton skapade innan profiles-tabellen fylldes i vid signup saknar en
+  // rad där (se AuthScreen) — skapas tyst första gången de loggar in, så de
+  // blir sökbara på Vänner-sidan utan något separat migreringssteg.
+  useEffect(() => {
+    if (!user || !displayName) return;
+    ensureProfileExists(user.id, displayName).catch(() => {});
+  }, [user, displayName]);
 
   useEffect(() => {
     loadWordList().then(() => setWordListReady(true));

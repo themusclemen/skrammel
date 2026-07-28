@@ -27,6 +27,7 @@ export async function confirmFriendship(currentUserId, currentDisplayName, invit
     requester_display_name: inviterName,
     addressee_id: currentUserId,
     addressee_display_name: currentDisplayName,
+    status: "accepted",
   });
   if (error && error.code !== "23505") throw error;
 }
@@ -37,6 +38,7 @@ export async function fetchFriends(userId) {
   const { data, error } = await supabase
     .from("friendships")
     .select("id, requester_id, requester_display_name, addressee_id, addressee_display_name")
+    .eq("status", "accepted")
     .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
   if (error) throw error;
 
@@ -50,6 +52,49 @@ export async function fetchFriends(userId) {
 export async function removeFriendship(friendshipId) {
   if (!isSupabaseConfigured) return;
   const { error } = await supabase.from("friendships").delete().eq("id", friendshipId);
+  if (error) throw error;
+}
+
+// Sök-baserad motsvarighet till confirmFriendship: skickaren skapar en
+// "pending"-rad istället för att den redan är bekräftad (ingen länk att
+// öppna = inget implicit samtycke), mottagaren accepterar/avvisar sen på
+// sin egen Vänner-sida.
+export async function sendFriendRequest(currentUserId, currentDisplayName, targetId, targetName) {
+  if (!isSupabaseConfigured) return;
+
+  const { error } = await supabase.from("friendships").insert({
+    requester_id: currentUserId,
+    requester_display_name: currentDisplayName,
+    addressee_id: targetId,
+    addressee_display_name: targetName,
+    status: "pending",
+  });
+  if (error) {
+    if (error.code === "23505") throw new Error("Ni är redan vänner, eller så väntar redan en förfrågan.");
+    throw error;
+  }
+}
+
+export async function fetchIncomingRequests(userId) {
+  if (!isSupabaseConfigured) return [];
+
+  const { data, error } = await supabase
+    .from("friendships")
+    .select("id, requester_id, requester_display_name")
+    .eq("status", "pending")
+    .eq("addressee_id", userId);
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    friendshipId: row.id,
+    requesterId: row.requester_id,
+    requesterName: row.requester_display_name,
+  }));
+}
+
+export async function acceptFriendRequest(friendshipId) {
+  if (!isSupabaseConfigured) return;
+  const { error } = await supabase.from("friendships").update({ status: "accepted" }).eq("id", friendshipId);
   if (error) throw error;
 }
 
