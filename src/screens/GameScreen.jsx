@@ -298,7 +298,7 @@ export default function GameScreen({
       ? `Du har ${minutesWord(durationSeconds)} minuter på dig att slå ${opponentName}s resultat: ${targetScore} poäng!`
       : introMode === "blixt-new"
       ? `Du har ${minutesWord(durationSeconds)} minuter på dig att hitta så många ord som möjligt. Din poäng kan sen skickas som en utmaning till en vän!`
-      : `Du har ${minutesWord(durationSeconds)} minuter på dig att hitta så många ord som möjligt av bokstäverna i "${sourceWord}". Ju längre ord, desto fler poäng!`;
+      : `Du har ${minutesWord(durationSeconds)} minuter på dig att hitta så många ord som möjligt av dagens bokstäver. Ju längre ord, desto fler poäng!`;
 
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, "0");
   const secondsPart = timeLeft % 60;
