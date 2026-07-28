@@ -78,8 +78,8 @@ export default function HomeScreen({
             </a>
           </>
         ) : (
-          <a href="#" onClick={(e) => { e.preventDefault(); onLogin(); }} style={{ color: T.accent }}>
-            Logga in för att synas på topplistan
+          <a href="#" onClick={(e) => { e.preventDefault(); onLogin(); }} style={{ color: T.accent, fontSize: "1.1rem", fontWeight: 700 }}>
+            Logga in
           </a>
         )}
       </div>
