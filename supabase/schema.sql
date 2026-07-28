@@ -47,11 +47,16 @@ create policy "Users can insert their own scores"
 
 create table profiles (
   id uuid primary key references auth.users(id),
-  display_name text unique,
+  display_name text not null,
   updated_at timestamptz not null default now()
 );
 
 alter table profiles enable row level security;
+
+-- Skiftlägesokänsligt unique-index (istället för ett vanligt unique-
+-- constraint på display_name) så att "Anna" och "anna" räknas som samma
+-- namn — display_name måste vara unikt vid kontoskapande.
+create unique index profiles_display_name_lower_idx on profiles (lower(display_name));
 
 create policy "Public can read profiles"
   on profiles for select
