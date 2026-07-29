@@ -11,15 +11,19 @@ export function escapeLikePattern(str) {
 
 // display_name måste vara unikt (skiftlägesokänsligt, se profiles-tabellens
 // unique-index) — används både för en snabb "ledigt/upptaget"-koll medan
-// man skriver, och som facit vid själva kontoskapandet.
-export async function isDisplayNameTaken(displayName) {
+// man skriver, och som facit vid själva kontoskapandet. excludeUserId
+// (SettingsScreens namnbyte) gör att man inte får "upptaget" på sitt eget
+// redan-satta namn.
+export async function isDisplayNameTaken(displayName, excludeUserId) {
   if (!isSupabaseConfigured) return false;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("profiles")
     .select("id")
-    .ilike("display_name", escapeLikePattern(displayName.trim()))
-    .maybeSingle();
+    .ilike("display_name", escapeLikePattern(displayName.trim()));
+  if (excludeUserId) query = query.neq("id", excludeUserId);
+
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data != null;
 }
@@ -28,6 +32,28 @@ export async function createProfile(userId, displayName) {
   if (!isSupabaseConfigured) return;
   const { error } = await supabase.from("profiles").insert({ id: userId, display_name: displayName.trim() });
   if (error) throw error;
+}
+
+// Visningsnamnet lagras på två ställen — auth-metadata (facit för namnet
+// som stämplas på nya resultat/utmaningar, se App.jsx) och profiles (facit
+// för unikhet/sökning) — båda måste uppdateras. profiles skrivs först
+// eftersom det är den som faktiskt bär unique-constraintet; om den
+// misslyckas (namnet togs precis) rör vi aldrig auth-metadatan. Historiska
+// rader (gamla resultat, avslutade matcher) behåller det gamla namnet som
+// en ögonblicksbild — samma princip som redan gäller för denormaliserade
+// namn på scores/friendships/blixt_challenges, ingen bakåtgående uppdatering.
+export async function updateDisplayName(userId, newDisplayName) {
+  if (!isSupabaseConfigured) return;
+
+  const trimmed = newDisplayName.trim();
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ display_name: trimmed })
+    .eq("id", userId);
+  if (profileError) throw profileError;
+
+  const { error: authError } = await supabase.auth.updateUser({ data: { display_name: trimmed } });
+  if (authError) throw authError;
 }
 
 // Konton skapade innan profiles-tabellen fylldes i vid signup saknar en

@@ -1,23 +1,9 @@
 import { useEffect, useState } from "react";
 import { supabase, isSupabaseConfigured } from "../supabase.js";
 import { isDisplayNameTaken, createProfile, MIN_DISPLAY_NAME_LENGTH } from "../api/profile.js";
+import { translateAuthError } from "../api/authErrors.js";
+import PasswordField from "../components/PasswordField.jsx";
 import { T } from "../theme.js";
-
-// Supabase auth (GoTrue) returnerar felmeddelanden på engelska med stabila,
-// kända strängar — översätter de vanligaste, faller tillbaka på originalet
-// för allt annat så att inget bara försvinner tyst.
-const AUTH_ERROR_TRANSLATIONS = {
-  "User already registered": "Det finns redan ett konto med den e-postadressen.",
-  "Invalid login credentials": "Fel e-postadress eller lösenord.",
-  "Password should be at least 6 characters": "Lösenordet måste vara minst 6 tecken.",
-  "Unable to validate email address: invalid format": "Ogiltig e-postadress.",
-  "Email not confirmed": "E-postadressen är inte bekräftad än.",
-  "Email rate limit exceeded": "För många försök, vänta en stund och försök igen.",
-};
-
-function translateAuthError(message) {
-  return AUTH_ERROR_TRANSLATIONS[message] ?? message;
-}
 
 export default function AuthScreen({ onDone }) {
   const [mode, setMode] = useState("login"); // "login" | "signup"
@@ -193,31 +179,15 @@ export default function AuthScreen({ onDone }) {
           type="email" required placeholder="E-post" value={email}
           onChange={(e) => setEmail(e.target.value)} style={styles.input}
         />
-        <div style={styles.passwordWrap}>
-          <input
-            type={showPassword ? "text" : "password"} required placeholder="Lösenord" value={password}
-            onChange={(e) => setPassword(e.target.value)} style={{ ...styles.input, ...styles.passwordInput }}
-          />
-          <button
-            type="button" onClick={() => setShowPassword((v) => !v)}
-            style={styles.eyeButton} aria-label={showPassword ? "Dölj lösenord" : "Visa lösenord"}
-          >
-            {showPassword ? "🙈" : "👁️"}
-          </button>
-        </div>
+        <PasswordField
+          value={password} onChange={(e) => setPassword(e.target.value)}
+          showPassword={showPassword} onToggleShow={() => setShowPassword((v) => !v)}
+        />
         {mode === "signup" && (
-          <div style={styles.passwordWrap}>
-            <input
-              type={showPassword ? "text" : "password"} required placeholder="Upprepa lösenord" value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)} style={{ ...styles.input, ...styles.passwordInput }}
-            />
-            <button
-              type="button" onClick={() => setShowPassword((v) => !v)}
-              style={styles.eyeButton} aria-label={showPassword ? "Dölj lösenord" : "Visa lösenord"}
-            >
-              {showPassword ? "🙈" : "👁️"}
-            </button>
-          </div>
+          <PasswordField
+            value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Upprepa lösenord" showPassword={showPassword} onToggleShow={() => setShowPassword((v) => !v)}
+          />
         )}
         {mode === "signup" && confirmPassword.length > 0 && password !== confirmPassword && (
           <div style={{ color: T.accent2, fontSize: "0.8rem" }}>Lösenorden matchar inte.</div>
@@ -267,13 +237,6 @@ const styles = {
   input: {
     padding: "0.7rem", borderRadius: 6, border: `1px solid ${T.border}`,
     background: T.surface, color: T.text, fontSize: "1rem", width: "100%",
-  },
-  passwordWrap: { position: "relative", display: "flex" },
-  passwordInput: { paddingRight: "2.4rem" },
-  eyeButton: {
-    position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
-    border: "none", background: "transparent", cursor: "pointer", fontSize: "1.1rem",
-    padding: "0.3rem 0.5rem", lineHeight: 1,
   },
   submitButton: {
     padding: "0.7rem", borderRadius: 8, border: "none", background: T.accent, color: "#121212", fontWeight: 700,
