@@ -57,10 +57,10 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   Motståndare väljs FÖRE spel via "Starta ny match" på hubben
   (`BlixtNewMatchModal`): vän, slumpad motståndare, eller CPU (ny,
   lokal träning utan databasrad). Kan även utmana vem som helst på
-  Blixt-topplistan. Anta/nobba som egna handlingar, max 20 matcher på
-  gång samtidigt (gäller inte CPU), vinst/förlust-stats per motståndare
-  med orddiff (vilka ord ni båda hittade vs bara en av er) — och
-  motståndarens poäng syns numera redan innan man själv spelat.
+  Blixt-topplistan. Anta/nobba som egna handlingar, max 50 matcher på
+  gång samtidigt (gäller inte CPU), orddiff på avslutade matcher
+  (vilka ord ni båda hittade vs bara en av er) — och motståndarens
+  poäng syns numera redan innan man själv spelat.
   Oavslutade utmaningar kan raderas på riktigt; avslutade matcher döljs
   (inte raderas — topplistan behöver raderna) automatiskt efter ett
   dygn eller manuellt. En "tiden är ute"-modal visar vinst/förlust

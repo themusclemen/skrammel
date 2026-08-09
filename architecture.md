@@ -841,3 +841,11 @@ annars hade nudgen aldrig upptäckts av en spelare som inte redan var
 inne i Blixt. Eftersom den bara lever på en enhet (inget konto-brett
 tillstånd) kan en spelare som byter enhet/webbläsare få ett nytt
 förslag där, oberoende av det på den första enheten.
+
+**Taket på samtidiga öppna Blixt-matcher höjt 20 → 50 (2026-08-09).**
+`BLIXT_MAX_OPEN_CHALLENGES` i `blixtConstants.js`, plus talet i
+`blixt_open_challenge_count`-policyn (`supabase/schema.sql`) — se
+migration `20260809140000_raise_blixt_open_challenge_cap.sql`, körd mot
+`skrammel-beta` via CLI:t samma session. Gäller bara Blixt;
+Skrammelpajs egna, separata `SKRAMMELPAJ_MAX_OPEN_CHALLENGES`-tak (20)
+är oförändrat.

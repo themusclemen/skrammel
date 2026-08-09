@@ -160,15 +160,15 @@ as $$
 $$;
 
 -- Creatorn skapar raden direkt när en oriktad Blixt-runda spelats klart och
--- en mottagare valts (se src/api/blixt.js) — taket på 20 gäller båda
+-- en mottagare valts (se src/api/blixt.js) — taket på 50 gäller båda
 -- parter, annars går det att spamma en populär slumpmotståndare förbi taket.
 create policy "Creator can create a challenge within caps"
   on blixt_challenges for insert
   with check (
     auth.uid() = creator_id
     and status = 'pending'
-    and blixt_open_challenge_count(auth.uid()) < 20
-    and blixt_open_challenge_count(opponent_id) < 20
+    and blixt_open_challenge_count(auth.uid()) < 50
+    and blixt_open_challenge_count(opponent_id) < 50
   );
 
 -- Mottagaren antar/ignorerar (pending -> accepted/declined), eller
