@@ -7,6 +7,8 @@ import { loadWordList, getDictionary } from "./game/wordList.js";
 import { computeStreak } from "./game/streak.js";
 import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
+import { HETS_SKIP_INFO_KEY } from "./game/hetsConstants.js";
+import { getBoolPreference, setBoolPreference } from "./game/uiPreferences.js";
 import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
 import { parseInviteFromLocation, confirmFriendship, fetchIncomingRequests } from "./api/friends.js";
 import { ensureProfileExists } from "./api/profile.js";
@@ -34,6 +36,7 @@ import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
 import GameInfoScreen from "./screens/GameInfoScreen.jsx";
+import HetsQuickStartModal from "./components/HetsQuickStartModal.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
 import HetsGameScreen from "./screens/HetsGameScreen.jsx";
 import HetsResultScreen from "./screens/HetsResultScreen.jsx";
@@ -105,6 +108,12 @@ export default function App() {
   // topplistan.
   const [hetsPersonalBest, setHetsPersonalBest] = useState(null);
   const [hetsResult, setHetsResult] = useState(null); // { highestCompletedLength, totalTimeMs, revealWord, previousBest }
+  // "Visa inte denna text igen" på Solo-Hets förklaringsskärm. hetsSkipInfo
+  // speglar den sparade preferensen (localStorage), hetsShowFullInfo tvingar
+  // fram den fulla texten just den här visningen (via "Instruktioner"-länken
+  // i HetsQuickStartModal) utan att ändra den sparade preferensen.
+  const [hetsSkipInfo, setHetsSkipInfo] = useState(() => getBoolPreference(HETS_SKIP_INFO_KEY));
+  const [hetsShowFullInfo, setHetsShowFullInfo] = useState(false);
   const [archiveData, setArchiveData] = useState(null); // { playableDates, playedDates }
   // Underlag för spelstreck och bästa nivå — se HomeScreen/ResultScreen.
   const [userStats, setUserStats] = useState({ playedDates: [], levelTimesList: [] });
@@ -365,6 +374,7 @@ export default function App() {
   // syns redan där (inte bara på resultatskärmen efteråt).
   const goToHetsInfo = useCallback(() => {
     setScreen("hets-info");
+    setHetsShowFullInfo(false);
     if (user) fetchMyHetsBest(user.id).then(setHetsPersonalBest);
     else setHetsPersonalBest(null);
   }, [user]);
@@ -775,6 +785,15 @@ export default function App() {
   }
 
   if (screen === "hets-info") {
+    if (hetsSkipInfo && !hetsShowFullInfo) {
+      return (
+        <HetsQuickStartModal
+          onStart={() => setScreen("hets-play")}
+          onBack={() => navigate("home")}
+          onInstructions={() => setHetsShowFullInfo(true)}
+        />
+      );
+    }
     return (
       <GameInfoScreen
         title="🔥 Solo-Hets"
@@ -787,6 +806,12 @@ export default function App() {
         ]}
         onBack={() => navigate("home")}
         onStart={() => setScreen("hets-play")}
+        skipCheckboxLabel="Visa inte denna text igen"
+        skipChecked={hetsSkipInfo}
+        onSkipChange={(checked) => {
+          setHetsSkipInfo(checked);
+          setBoolPreference(HETS_SKIP_INFO_KEY, checked);
+        }}
       />
     );
   }

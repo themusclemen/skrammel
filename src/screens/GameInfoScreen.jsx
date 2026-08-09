@@ -13,7 +13,13 @@ const WORD_LIST_NOTE =
 // Tillbaka/Starta-val. secondaryAction (t.ex. "Kalender" för Skrammel, som
 // tar en till arkivet över tidigare dagar) renderas som en tonad extra-
 // knapp under huvudvalet, ospårat av vare sig Blixt eller Skrammelpaj.
-export default function GameInfoScreen({ title, description, onBack, onStart, startLabel = "Starta", secondaryAction }) {
+// skipCheckboxLabel/skipChecked/onSkipChange är alla valfria — bara Solo-Hets
+// använder dem just nu (för "Visa inte denna text igen"). Utan onSkipChange
+// renderas ingen checkbox, så Blixt/Skrammelpaj/Skrammel är opåverkade.
+export default function GameInfoScreen({
+  title, description, onBack, onStart, startLabel = "Starta", secondaryAction,
+  skipCheckboxLabel, skipChecked = false, onSkipChange,
+}) {
   const [showWordListNote, setShowWordListNote] = useState(false);
 
   return (
@@ -33,6 +39,17 @@ export default function GameInfoScreen({ title, description, onBack, onStart, st
         {showWordListNote ? "Vilka ord gäller? ▲" : "Vilka ord gäller? ▼"}
       </button>
       {showWordListNote && <p style={styles.wordListNote}>{WORD_LIST_NOTE}</p>}
+
+      {onSkipChange && (
+        <label style={styles.skipRow}>
+          <input
+            type="checkbox"
+            checked={skipChecked}
+            onChange={(e) => onSkipChange(e.target.checked)}
+          />
+          {skipCheckboxLabel}
+        </label>
+      )}
 
       <div style={styles.navRow}>
         <button onClick={onBack} style={styles.backButton}>Tillbaka</button>
@@ -61,6 +78,10 @@ const styles = {
     fontWeight: 600, cursor: "pointer", padding: 0, marginTop: "-0.4rem",
   },
   wordListNote: { margin: 0, maxWidth: 380, color: T.muted, fontSize: "0.85rem", lineHeight: 1.5 },
+  skipRow: {
+    display: "flex", alignItems: "center", gap: "0.5rem", color: T.muted,
+    fontSize: "0.85rem", cursor: "pointer",
+  },
   navRow: { display: "flex", gap: "0.6rem", width: "100%", maxWidth: 380, marginTop: "0.5rem" },
   backButton: {
     flex: 1, padding: "0.8rem", borderRadius: 10, border: `1px solid ${T.border}`,
