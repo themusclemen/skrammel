@@ -328,11 +328,19 @@ access token), spela-loop fungerar, `POST /rest/v1/scores` → 201, och
 resultatet dyker upp korrekt på `/leaderboard`. `.env` (gitignorad)
 innehåller `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` lokalt.
 
-**Städbehov:** ett par testkonton (`skrammel-test-*@mailinator.com`)
-och deras poster i `scores` ligger kvar i `skrammel-beta` från
-verifieringen — inget jag kan rensa själv med bara anon-nyckeln (kräver
-service role-nyckel eller Supabase-dashboarden: Authentication → Users,
-och Table editor → scores). Städa innan riktiga betatestare bjuds in.
+**Städbehov — löst (2026-08-09).** Tolv `skrammel-*@mailinator.com`-
+testkonton (test/prod-test/adminui×3/adminui2/adminui3/archivetest/
+savetest/admintest, alla från juli) och alla deras rader (`scores`,
+`blixt_challenges`+`blixt_scores` via cascade, `skrammelpaj_challenges`
++`skrammelpaj_moves` via cascade, `hets_scores`, `friendships`,
+`profiles`) raderade permanent från `skrammel-beta` via Management API
+mot produktions-DB (samma access-token-mönster som schemaändringar
+tidigare i repot). Utlöst av att de dök upp som "slumpmässig
+motståndare" i Blixt (`fetchRandomOpponent` matchar mot alla i
+`scores`, inget filter på testkonton) — spelaren trodde det var en bugg
+i det nya CPU-läget, men CPU rör aldrig databasen alls; det var en
+riktig match mot en kvarglömd testrad. Verifierat efteråt: kvar är
+bara de fyra riktiga spelarna plus `themusclemen@gmail.com`/`2`/`3`.
 
 ## Lokal körning utan backend
 
@@ -357,8 +365,8 @@ auth-skärmen fungerar alla utan `.env`, inga konsolfel.
 
 ## Öppna beslut / att göra härnäst
 
-1. Städa testkonton/testresultat i `skrammel-beta` (se ovan) innan
-   riktiga betatestare bjuds in.
+1. ~~Städa testkonton/testresultat i `skrammel-beta`~~ — klart 2026-08-09,
+   se "Städbehov" ovan.
 2. Ta ställning till `profiles`-tabellen (se "Datamodell" ovan) — helt
    oanvänd sedan visningsnamn flyttade till auth `user_metadata`.
    Antingen skriv en migration som droppar den, eller lämna den om
@@ -849,3 +857,14 @@ migration `20260809140000_raise_blixt_open_challenge_cap.sql`, körd mot
 `skrammel-beta` via CLI:t samma session. Gäller bara Blixt;
 Skrammelpajs egna, separata `SKRAMMELPAJ_MAX_OPEN_CHALLENGES`-tak (20)
 är oförändrat.
+
+**5–10 sekunders paus efter avslutad Blixt-runda fixad (2026-08-09).**
+`handleBlixtResponseFinish` i `App.jsx` väntade in ett fullt
+`refreshBlixtChallenges()` (ny `fetchMyChallenges` + sekventiellt,
+en-i-taget `applyPendingExpirations`-anrop per gammal obesvarad
+inbjudan) INNAN skärmbytet till `blixt-result` — resultatskärmen
+behöver bara `blixtResult` (satt synkront direkt efter
+`submitBlixtScore`), inte en uppdaterad matchlista. `setScreen` körs nu
+direkt, `refreshBlixtChallenges()` i bakgrunden utan att blockera
+(`.catch(() => {})` för att undvika en unhandled rejection om den
+misslyckas). Hittades i samma session som testkonto-städningen ovan.

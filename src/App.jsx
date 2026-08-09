@@ -600,6 +600,13 @@ export default function App() {
     setScreen("blixt-respond-play");
   }, []);
 
+  // Resultatskärmen bara behöver blixtResult (satt synkront nedan) — den
+  // väntade tidigare in refreshBlixtChallenges() (fetchMyChallenges +
+  // eventuellt flera sekventiella applyPendingExpirations-anrop för gamla
+  // obesvarade inbjudningar) INNAN skärmbytet, vilket kunde ge en märkbar
+  // paus efter att en runda spelats klart. Uppdateringen behövs bara för
+  // huben (redan täckt av goToBlixt nästa gång dit), så den körs nu i
+  // bakgrunden istället för att blockera navigeringen.
   const handleBlixtResponseFinish = useCallback(async (score, words) => {
     if (!user || !activeBlixtChallenge) return;
     const name = displayName ?? user.email.split("@")[0];
@@ -613,8 +620,8 @@ export default function App() {
       opponentName: activeBlixtChallenge.creator_display_name,
     });
     setActiveBlixtChallenge(null);
-    await refreshBlixtChallenges();
     setScreen("blixt-result");
+    refreshBlixtChallenges().catch(() => {});
   }, [user, displayName, activeBlixtChallenge, refreshBlixtChallenges]);
 
   const goToBlixt = useCallback(async () => {
