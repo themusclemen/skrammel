@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { T } from "../theme.js";
-import { classifyChallenge, computeChallengeStats, openChallengeCount } from "../api/blixt.js";
+import { classifyChallenge, openChallengeCount } from "../api/blixt.js";
 import {
   BLIXT_MAX_OPEN_CHALLENGES, BLIXT_ACCEPT_DEADLINE_HOURS, BLIXT_COMPLETED_VISIBLE_MS,
   BLIXT_DISMISSED_STORAGE_PREFIX,
@@ -202,46 +202,54 @@ function ScoreBadge({ score }) {
   return <span style={styles.scoreBadge}>{score}p</span>;
 }
 
-// En rads knappar beror på vilken av de två delstatusarna som slogs ihop
-// till samma sektion (PÅGÅENDE: din tur / motståndarens tur, VÄNTANDE:
-// väntar på ditt svar / väntar på motståndarens svar) — avgörs per rad här
-// istället för att hålla fyra separata sektioner som förut. Samma mönster
-// som SkrammelpajScreen.jsx.
-function ongoingActions(challenge, userId, onPlay, onDelete) {
+// Pedagogisk statusmärkning per rad istället för att gissa utifrån vilken
+// sektion raden råkar stå i: "Din tur" täcker båda lägena där JAG behöver
+// göra något (spela ETT drag, eller anta/nobba en inbjudan) — "Väntande på
+// motståndare" täcker båda lägena där bollen ligger hos DEM.
+function StatusChip({ status }) {
+  const needsAction = status === "your_turn" || status === "needs_response";
+  return (
+    <span style={{ ...styles.statusChip, ...(needsAction ? styles.statusChipAction : styles.statusChipWaiting) }}>
+      {needsAction ? "Din tur" : "Väntande på motståndare"}
+    </span>
+  );
+}
+
+// En enda uppsättning knappar för alla fyra delstatusarna (samma logik som
+// tidigare låg uppdelad på ongoingActions/waitingActions för två separata
+// sektioner) — nu i EN sektion, "Pågående matcher", med StatusChip ovan för
+// att göra skillnaden begriplig utan att behöva slå upp vilken sektion man
+// tittar i.
+function matchActions(challenge, userId, onPlay, onRespond, onDelete) {
+  const status = classifyChallenge(challenge, userId);
+  const chip = <StatusChip status={status} />;
   const badge = <ScoreBadge score={opponentScoreOf(challenge, userId)} />;
-  return classifyChallenge(challenge, userId) === "your_turn"
-    ? (
+
+  if (status === "your_turn") {
+    return (
       <>
-        {badge}
+        {chip}{badge}
         <button onClick={() => onPlay(challenge)} style={styles.smallButton}>Spela</button>
         <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
       </>
-    )
-    : (
-      <>
-        {badge}
-        <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
-      </>
     );
-}
-
-function waitingActions(challenge, userId, onRespond, onDelete) {
-  const badge = <ScoreBadge score={opponentScoreOf(challenge, userId)} />;
-  return classifyChallenge(challenge, userId) === "needs_response"
-    ? (
+  }
+  if (status === "needs_response") {
+    return (
       <>
-        {badge}
+        {chip}{badge}
         <button onClick={() => onRespond(challenge.id, true)} style={styles.smallButton}>Anta</button>
         <button onClick={() => onRespond(challenge.id, false)} style={styles.smallButtonMuted}>Nobba</button>
         <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
       </>
-    )
-    : (
-      <>
-        {badge}
-        <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
-      </>
     );
+  }
+  return (
+    <>
+      {chip}{badge}
+      <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
+    </>
+  );
 }
 
 export default function BlixtScreen({
@@ -256,7 +264,6 @@ export default function BlixtScreen({
 
   const openCount = openChallengeCount(challenges, user.id);
   const atCap = openCount >= BLIXT_MAX_OPEN_CHALLENGES;
-  const stats = computeChallengeStats(challenges, user.id);
 
   const now = Date.now();
   const visibleOpen = challenges.filter((c) => {
@@ -269,14 +276,7 @@ export default function BlixtScreen({
     return now - completedAtOf(c) < BLIXT_COMPLETED_VISIBLE_MS;
   });
 
-  const ongoing = visibleOpen.filter((c) => {
-    const status = classifyChallenge(c, user.id);
-    return status === "your_turn" || status === "waiting_opponent_play";
-  });
-  const waitingToStart = visibleOpen.filter((c) => {
-    const status = classifyChallenge(c, user.id);
-    return status === "needs_response" || status === "waiting_opponent_response";
-  });
+  const hasUnansweredInvite = visibleOpen.some((c) => classifyChallenge(c, user.id) === "needs_response");
 
   const handleDismiss = (challengeId) => {
     dismissMatch(BLIXT_DISMISSED_STORAGE_PREFIX, user.id, challengeId);
@@ -329,43 +329,21 @@ export default function BlixtScreen({
         </Section>
       )}
 
-      {ongoing.length > 0 && (
-        <Section title="PÅGÅENDE">
-          {groupByOpponent(ongoing, user.id).map((g) => (
+      {visibleOpen.length > 0 && (
+        <Section
+          title="Pågående matcher"
+          note={hasUnansweredInvite
+            ? `En obesvarad utmaning tas bort automatiskt om den inte antas inom ${BLIXT_ACCEPT_DEADLINE_HOURS} timmar.`
+            : undefined}
+        >
+          {groupByOpponent(visibleOpen, user.id).map((g) => (
             <ChallengeGroup
               key={g.opponentId}
               opponentName={g.opponentName}
               challenges={g.challenges}
-              renderActions={(c) => ongoingActions(c, user.id, onPlay, onDelete)}
+              renderActions={(c) => matchActions(c, user.id, onPlay, onRespond, onDelete)}
               alwaysExpanded
             />
-          ))}
-        </Section>
-      )}
-
-      {waitingToStart.length > 0 && (
-        <Section
-          title="VÄNTANDE"
-          note={`En obesvarad utmaning tas bort automatiskt om den inte antas inom ${BLIXT_ACCEPT_DEADLINE_HOURS} timmar.`}
-        >
-          {groupByOpponent(waitingToStart, user.id).map((g) => (
-            <ChallengeGroup
-              key={g.opponentId}
-              opponentName={g.opponentName}
-              challenges={g.challenges}
-              renderActions={(c) => waitingActions(c, user.id, onRespond, onDelete)}
-            />
-          ))}
-        </Section>
-      )}
-
-      {stats.length > 0 && (
-        <Section title="Vinst/förlust per motståndare">
-          {stats.map((s) => (
-            <div key={s.opponentId} style={styles.row}>
-              <span>{s.opponentName}</span>
-              <span style={{ color: T.muted, fontSize: "0.85rem" }}>{s.wins}V – {s.losses}F</span>
-            </div>
           ))}
         </Section>
       )}
@@ -419,11 +397,16 @@ const styles = {
     display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0.75rem",
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`,
   },
-  rowActions: { display: "flex", alignItems: "center", gap: "0.4rem" },
+  rowActions: { display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: "0.4rem" },
   scoreBadge: {
     color: T.muted, fontSize: "0.78rem", fontWeight: 700, background: T.bg,
     border: `1px solid ${T.border}`, borderRadius: 999, padding: "0.15rem 0.5rem",
   },
+  statusChip: {
+    fontSize: "0.72rem", fontWeight: 700, borderRadius: 999, padding: "0.15rem 0.55rem",
+  },
+  statusChipAction: { background: T.accent, color: "#121212" },
+  statusChipWaiting: { background: "transparent", border: `1px solid ${T.border}`, color: T.muted },
   group: {
     display: "flex", flexDirection: "column", gap: "0.3rem",
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`, overflow: "hidden",
