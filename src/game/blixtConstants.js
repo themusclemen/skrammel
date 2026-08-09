@@ -9,3 +9,5 @@ export const BLIXT_MAX_OPEN_CHALLENGES = 20;
 // ignoreras — samma gräns och resonemang som Skrammelpajs
 // SKRAMMELPAJ_ACCEPT_DEADLINE_HOURS.
 export const BLIXT_ACCEPT_DEADLINE_HOURS = 24;
+// localStorage-nyckel för "Visa inte denna text igen" på förklaringsskärmen.
+export const BLIXT_SKIP_INFO_KEY = "skrammel_blixt_skip_info";

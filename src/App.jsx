@@ -9,7 +9,7 @@ import { bestLevelReached, levelReachedForScore } from "./game/levels.js";
 import { ADMIN_EMAIL } from "./game/constants.js";
 import { HETS_SKIP_INFO_KEY } from "./game/hetsConstants.js";
 import { getBoolPreference, setBoolPreference } from "./game/uiPreferences.js";
-import { BLIXT_DURATION_SECONDS } from "./game/blixtConstants.js";
+import { BLIXT_DURATION_SECONDS, BLIXT_SKIP_INFO_KEY } from "./game/blixtConstants.js";
 import { parseInviteFromLocation, confirmFriendship, fetchIncomingRequests } from "./api/friends.js";
 import { ensureProfileExists } from "./api/profile.js";
 import { fetchRandomOpponent } from "./api/scores.js";
@@ -36,7 +36,7 @@ import { T } from "./theme.js";
 import HomeScreen from "./screens/HomeScreen.jsx";
 import GameScreen from "./screens/GameScreen.jsx";
 import GameInfoScreen from "./screens/GameInfoScreen.jsx";
-import HetsQuickStartModal from "./components/HetsQuickStartModal.jsx";
+import QuickStartModal from "./components/QuickStartModal.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
 import HetsGameScreen from "./screens/HetsGameScreen.jsx";
 import HetsResultScreen from "./screens/HetsResultScreen.jsx";
@@ -111,9 +111,12 @@ export default function App() {
   // "Visa inte denna text igen" på Solo-Hets förklaringsskärm. hetsSkipInfo
   // speglar den sparade preferensen (localStorage), hetsShowFullInfo tvingar
   // fram den fulla texten just den här visningen (via "Instruktioner"-länken
-  // i HetsQuickStartModal) utan att ändra den sparade preferensen.
+  // i QuickStartModal) utan att ändra den sparade preferensen.
   const [hetsSkipInfo, setHetsSkipInfo] = useState(() => getBoolPreference(HETS_SKIP_INFO_KEY));
   const [hetsShowFullInfo, setHetsShowFullInfo] = useState(false);
+  // Samma mönster för Blixt-Duells förklaringsskärm.
+  const [blixtSkipInfo, setBlixtSkipInfo] = useState(() => getBoolPreference(BLIXT_SKIP_INFO_KEY));
+  const [blixtShowFullInfo, setBlixtShowFullInfo] = useState(false);
   const [archiveData, setArchiveData] = useState(null); // { playableDates, playedDates }
   // Underlag för spelstreck och bästa nivå — se HomeScreen/ResultScreen.
   const [userStats, setUserStats] = useState({ playedDates: [], levelTimesList: [] });
@@ -378,6 +381,11 @@ export default function App() {
     if (user) fetchMyHetsBest(user.id).then(setHetsPersonalBest);
     else setHetsPersonalBest(null);
   }, [user]);
+
+  const goToBlixtInfo = useCallback(() => {
+    setScreen("blixt-info");
+    setBlixtShowFullInfo(false);
+  }, []);
 
   // Sparar bara om resultatet faktiskt slår det gamla rekordet (se
   // submitHetsScore) och hämtar sen om det egna rekordet, så en efterföljande
@@ -787,7 +795,8 @@ export default function App() {
   if (screen === "hets-info") {
     if (hetsSkipInfo && !hetsShowFullInfo) {
       return (
-        <HetsQuickStartModal
+        <QuickStartModal
+          title="🔥 Solo-Hets"
           onStart={() => setScreen("hets-play")}
           onBack={() => navigate("home")}
           onInstructions={() => setHetsShowFullInfo(true)}
@@ -848,6 +857,16 @@ export default function App() {
   }
 
   if (screen === "blixt-info") {
+    if (blixtSkipInfo && !blixtShowFullInfo) {
+      return (
+        <QuickStartModal
+          title="⚡ Blixt-Duell"
+          onStart={handleStartBlixtFromInfo}
+          onBack={() => navigate("home")}
+          onInstructions={() => setBlixtShowFullInfo(true)}
+        />
+      );
+    }
     return (
       <GameInfoScreen
         title="⚡ Blixt-Duell"
@@ -858,6 +877,12 @@ export default function App() {
         onBack={() => navigate("home")}
         onStart={handleStartBlixtFromInfo}
         secondaryAction={user ? { label: "📋 Mina matcher", onClick: goToBlixt } : undefined}
+        skipCheckboxLabel="Visa inte denna text igen"
+        skipChecked={blixtSkipInfo}
+        onSkipChange={(checked) => {
+          setBlixtSkipInfo(checked);
+          setBoolPreference(BLIXT_SKIP_INFO_KEY, checked);
+        }}
       />
     );
   }
@@ -1164,7 +1189,7 @@ export default function App() {
         pendingFriendRequestCount={incomingFriendRequests.length}
         onPlay={() => navigate("daily-info")}
         onPlayHets={goToHetsInfo}
-        onPlayBlixt={() => navigate("blixt-info")}
+        onPlayBlixt={goToBlixtInfo}
         onPlaySkrammelpaj={() => navigate("skrammelpaj-info")}
         onTopplistor={() => navigate("topplistor")}
         onFriends={() => navigate("friends")}
