@@ -20,6 +20,9 @@ import {
 } from "./api/blixt.js";
 import { generateBlixtCpuResult } from "./game/blixtCpu.js";
 import {
+  loadAutoCpuPrompt, shouldGenerateAutoCpuPrompt, generateAutoCpuPrompt, resolveAutoCpuPrompt,
+} from "./game/blixtAutoCpu.js";
+import {
   createChallenge as createSkrammelpajChallenge,
   respondToChallenge as respondToSkrammelpajChallenge,
   deleteChallenge as deleteSkrammelpajChallenge,
@@ -190,12 +193,19 @@ export default function App() {
   // Hämtar mina Blixt-utmaningar och avgör i samma veva om någon obesvarad
   // utmaning där jag är opponent sprungit ut på 24-timmarsgränsen
   // (self-reported, se applyPendingExpirations — ingen cron finns i appen).
+  // blixtChallengesLoaded gates the auto-CPU-nudge check below — utan den
+  // skulle en spelare som råkar ha en riktig obesvarad utmaning kunna få
+  // ett CPU-förslag genererat under det korta ögonblicket innan
+  // myBlixtChallenges hunnit hämtas första gången (tom lista → 0 obesvarade).
+  const [blixtChallengesLoaded, setBlixtChallengesLoaded] = useState(false);
+
   const refreshBlixtChallenges = useCallback(async () => {
-    if (!user) { setMyBlixtChallenges([]); return; }
+    if (!user) { setMyBlixtChallenges([]); setBlixtChallengesLoaded(false); return; }
     let list = await fetchMyChallenges(user.id);
     const expired = await applyPendingBlixtExpirations(list, user.id);
     if (expired) list = await fetchMyChallenges(user.id);
     setMyBlixtChallenges(list);
+    setBlixtChallengesLoaded(true);
   }, [user]);
 
   useEffect(() => { refreshBlixtChallenges(); }, [refreshBlixtChallenges]);
@@ -214,6 +224,33 @@ export default function App() {
     if (!user) return 0;
     return myBlixtChallenges.filter((c) => classifyChallenge(c, user.id) === "needs_response").length;
   }, [myBlixtChallenges, user]);
+
+  // Automatisk "CPU utmanar dig"-nudge (se game/blixtAutoCpu.js) — helt
+  // lokal, aldrig i databasen. Genereras (högst en gång/dygn) bara när
+  // spelaren INTE redan har en riktig obesvarad utmaning eller ett
+  // tidigare CPU-förslag den inte hunnit svara på. Körs varje gång
+  // myBlixtChallenges (om)laddats, vilket redan sker vid appstart och
+  // vid varje åtgärd i Blixt — ingen cron finns i appen, se
+  // applyPendingExpirations för samma mönster.
+  const [blixtAutoCpuPrompt, setBlixtAutoCpuPrompt] = useState(null);
+
+  useEffect(() => {
+    if (!user) { setBlixtAutoCpuPrompt(null); return; }
+    setBlixtAutoCpuPrompt(loadAutoCpuPrompt(user.id));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !blixtChallengesLoaded) return;
+    if (!shouldGenerateAutoCpuPrompt(user.id, pendingBlixtInviteCount > 0)) return;
+    let cancelled = false;
+    (async () => {
+      const word = await pickBlixtWord(getDictionary());
+      const cpu = generateBlixtCpuResult(word, getDictionary());
+      if (cancelled) return;
+      setBlixtAutoCpuPrompt(generateAutoCpuPrompt(user.id, word, cpu.score, cpu.words));
+    })();
+    return () => { cancelled = true; };
+  }, [user, blixtChallengesLoaded, pendingBlixtInviteCount]);
 
   // Räknar matcher som bytt status (t.ex. antagen eller klar) sen jag
   // senast öppnade Blixt-huben — se game/matchSeen.js. Bumpas för att
@@ -447,6 +484,26 @@ export default function App() {
     startBlixtRound("cpu");
   }, [startBlixtRound]);
 
+  // Spelar den automatiska CPU-nudgen (se blixtAutoCpu.js) — till skillnad
+  // från "cpu"-läget ovan är källordet OCH CPU:ns poäng redan bestämda
+  // (samma princip som en riktig utmaning: motståndarens poäng visas redan
+  // innan man spelar), så ingen ny runda slumpas här.
+  const handlePlayAutoCpuPrompt = useCallback(() => {
+    if (!blixtAutoCpuPrompt) return;
+    setBlixtError(null);
+    setBlixtSkipIntro(false);
+    setBlixtPlayMode("auto-cpu");
+    setBlixtCommittedOpponent(null);
+    setBlixtSourceWord(blixtAutoCpuPrompt.sourceWord);
+    setScreen("blixt-play");
+  }, [blixtAutoCpuPrompt]);
+
+  const handleDeclineAutoCpuPrompt = useCallback(() => {
+    if (!user) return;
+    resolveAutoCpuPrompt(user.id);
+    setBlixtAutoCpuPrompt((prev) => prev && { ...prev, status: "resolved" });
+  }, [user]);
+
   // Utmana direkt från topplistan eller en väns detaljsida — motståndaren
   // är redan känd, så det blir samma "committed"-flöde som att välja en
   // vän i BlixtNewMatchModal.
@@ -492,6 +549,17 @@ export default function App() {
       return;
     }
 
+    if (blixtPlayMode === "auto-cpu") {
+      setBlixtResult({
+        myScore: score, myWords: words,
+        opponentScore: blixtAutoCpuPrompt?.cpuScore ?? 0, opponentName: "CPU",
+      });
+      if (user) resolveAutoCpuPrompt(user.id);
+      setBlixtAutoCpuPrompt((prev) => prev && { ...prev, status: "resolved" });
+      setScreen("blixt-result");
+      return;
+    }
+
     if (!user) { setScreen("home"); return; }
     const name = displayName ?? user.email.split("@")[0];
 
@@ -515,7 +583,7 @@ export default function App() {
       if (!succeeded) setBlixtError("Hittade ingen ledig motståndare just nu, försök igen senare.");
       setScreen("blixt-hub");
     }
-  }, [blixtPlayMode, blixtSourceWord, blixtCommittedOpponent, user, displayName, refreshBlixtChallenges, submitBlixtRandomChallenge]);
+  }, [blixtPlayMode, blixtSourceWord, blixtCommittedOpponent, blixtAutoCpuPrompt, user, displayName, refreshBlixtChallenges, submitBlixtRandomChallenge]);
 
   const handleRespondToChallenge = useCallback(async (challengeId, accept) => {
     await respondToChallenge(challengeId, accept);
@@ -921,6 +989,9 @@ export default function App() {
         onChallengeFriend={handleChallengeFriendChoice}
         onChallengeRandom={handleChallengeRandomChoice}
         onPlayCpu={handlePlayBlixtCpu}
+        autoCpuPrompt={blixtAutoCpuPrompt}
+        onPlayAutoCpu={handlePlayAutoCpuPrompt}
+        onDeclineAutoCpu={handleDeclineAutoCpuPrompt}
         onDelete={handleDeleteChallenge}
         onLeaderboard={goToBlixtLeaderboard}
         onRules={goToBlixtInfo}
@@ -1175,7 +1246,7 @@ export default function App() {
         bestLevel={bestLevel}
         playedToday={playedToday}
         pendingBlixtCount={pendingBlixtCount}
-        pendingBlixtInviteCount={pendingBlixtInviteCount}
+        pendingBlixtInviteCount={pendingBlixtInviteCount + (blixtAutoCpuPrompt?.status === "pending" ? 1 : 0)}
         blixtUpdatesCount={blixtUpdatesCount}
         pendingSkrammelpajCount={pendingSkrammelpajCount}
         pendingSkrammelpajInviteCount={pendingSkrammelpajInviteCount}

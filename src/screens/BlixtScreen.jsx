@@ -247,8 +247,10 @@ function waitingActions(challenge, userId, onRespond, onDelete) {
 export default function BlixtScreen({
   user, challenges, error, onClearError,
   onRespond, onPlay, onChallengeFriend, onChallengeRandom, onPlayCpu,
+  autoCpuPrompt, onPlayAutoCpu, onDeclineAutoCpu,
   onDelete, onLeaderboard, onRules, onBack,
 }) {
+  const hasAutoCpuPrompt = autoCpuPrompt?.status === "pending";
   const [showNewMatchModal, setShowNewMatchModal] = useState(false);
   const [dismissedIds, setDismissedIds] = useState(() => loadDismissedIds(BLIXT_DISMISSED_STORAGE_PREFIX, user.id));
 
@@ -310,8 +312,21 @@ export default function BlixtScreen({
         />
       )}
 
-      {visibleOpen.length === 0 && (
+      {visibleOpen.length === 0 && !hasAutoCpuPrompt && (
         <div style={{ color: T.muted }}>Inga pågående matcher just nu.</div>
+      )}
+
+      {hasAutoCpuPrompt && (
+        <Section title="CPU UTMANAR DIG">
+          <div style={styles.row}>
+            <span>🤖 CPU</span>
+            <div style={styles.rowActions}>
+              <ScoreBadge score={autoCpuPrompt.cpuScore} />
+              <button onClick={onPlayAutoCpu} style={styles.smallButton}>Spela</button>
+              <button onClick={onDeclineAutoCpu} style={styles.smallButtonMuted}>Nobba</button>
+            </div>
+          </div>
+        </Section>
       )}
 
       {ongoing.length > 0 && (

@@ -809,3 +809,35 @@ lokal CPU-runda (se nedan) istället.
   matchrad skulle krympa topplistans historik. Beslutat med användaren
   innan bygget (se AskUserQuestion-svar samma session).
 - Ingen migration behövdes — inga schemaändringar, bara klientlogik.
+
+**CPU-svårighetsgrad omkalibrerad mot riktiga resultat (2026-08-09).**
+`CPU_MIN_PERCENT`/`CPU_MAX_PERCENT` i `blixtCpu.js` sänkta från 25–65 %
+till **18–30 %** av ordets totalt möjliga poäng. De gamla värdena var
+lånade från dagens-ordets svåraste nivåer (GUD/LEGENDARISK) och gjorde
+CPU:n i princip ovärlig — riktiga Blixt-resultat (65 spelade rundor i
+`skrammel-beta`, kollade via Management API mot produktions-DB) ligger
+istället på 0–48 %, median 22,6 %. Nya intervallet matchar mittersta
+hälften (p25–p75) av riktiga spelare, så en medelmåttig spelare har en
+verklig chans att vinna.
+
+**Automatisk "CPU utmanar dig"-nudge (2026-08-09).** Ny
+`src/game/blixtAutoCpu.js` — helt lokal (localStorage per användar-id,
+`BLIXT_AUTO_CPU_STORAGE_PREFIX`), ALDRIG en databasrad (medvetet val,
+se AskUserQuestion-svar samma session: annars hade det krävt ett
+påhittat CPU-systemkonto för att tillfredsställa `blixt_challenges`s
+foreign key mot `auth.users`, och en fråga om huruvida det ska räknas
+i topplistan). Genereras högst en gång var 24:e timme
+(`BLIXT_AUTO_CPU_INTERVAL_MS`), och bara om spelaren varken har en
+riktig obesvarad utmaning (`pendingBlixtInviteCount`) eller ett
+tidigare CPU-förslag den inte hunnit svara på — kollen körs i `App.jsx`
+varje gång `myBlixtChallenges` (om)laddats, gated bakom en
+`blixtChallengesLoaded`-flagga så kollen inte hinner köra på en
+tillfälligt tom lista innan första hämtningen är klar. Källordet och
+CPU:ns poäng slumpas EN gång vid generering och sparas (samma princip
+som poäng-före-spel ovan). Visas som en egen "CPU UTMANAR DIG"-sektion
+högst upp i `BlixtScreen.jsx`, med Spela/Nobba — och bumpar
+hemskärmens `pendingBlixtInviteCount` med 1 så Blixt-knappen blinkar,
+annars hade nudgen aldrig upptäckts av en spelare som inte redan var
+inne i Blixt. Eftersom den bara lever på en enhet (inget konto-brett
+tillstånd) kan en spelare som byter enhet/webbläsare få ett nytt
+förslag där, oberoende av det på den första enheten.

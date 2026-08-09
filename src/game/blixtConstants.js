@@ -18,3 +18,10 @@ export const BLIXT_COMPLETED_VISIBLE_MS = 24 * 60 * 60 * 1000;
 // localStorage-nyckel-prefix (+ userId) för matcher spelaren själv dolt
 // manuellt innan dygnsgränsen ovan — se dismissedMatches.js.
 export const BLIXT_DISMISSED_STORAGE_PREFIX = "skrammel_blixt_dismissed_";
+// Hur sällan en automatisk "CPU utmanar dig"-nudge genereras (se
+// blixtAutoCpu.js) — högst en gång per dygn, och bara om spelaren inte
+// redan har en riktig obesvarad utmaning eller ett tidigare CPU-förslag
+// den inte hunnit svara på.
+export const BLIXT_AUTO_CPU_INTERVAL_MS = 24 * 60 * 60 * 1000;
+// localStorage-nyckel-prefix (+ userId) — se blixtAutoCpu.js.
+export const BLIXT_AUTO_CPU_STORAGE_PREFIX = "skrammel_blixt_auto_cpu_";
