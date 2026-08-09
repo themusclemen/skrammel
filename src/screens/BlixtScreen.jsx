@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { T } from "../theme.js";
 import { classifyChallenge, computeChallengeStats, openChallengeCount } from "../api/blixt.js";
-import { BLIXT_MAX_OPEN_CHALLENGES, BLIXT_ACCEPT_DEADLINE_HOURS } from "../game/blixtConstants.js";
+import {
+  BLIXT_MAX_OPEN_CHALLENGES, BLIXT_ACCEPT_DEADLINE_HOURS, BLIXT_COMPLETED_VISIBLE_MS,
+  BLIXT_DISMISSED_STORAGE_PREFIX,
+} from "../game/blixtConstants.js";
+import { loadDismissedIds, dismissMatch } from "../game/dismissedMatches.js";
+import BlixtNewMatchModal from "../components/BlixtNewMatchModal.jsx";
 
 const OPEN_CHALLENGE_VISIBLE_MS = 48 * 60 * 60 * 1000;
 
@@ -11,6 +16,25 @@ function opponentNameOf(challenge, userId) {
 
 function opponentIdOf(challenge, userId) {
   return challenge.creator_id === userId ? challenge.opponent_id : challenge.creator_id;
+}
+
+// Skaparen har alltid redan spelat sin runda när utmaningen skapas — så
+// motståndarens poäng går att visa direkt, även innan jag själv spelat
+// (uttryckligt önskat: man ska se vad man ger sig in på innan man antar).
+function opponentScoreOf(challenge, userId) {
+  const opponentId = opponentIdOf(challenge, userId);
+  const row = (challenge.blixt_scores ?? []).find((s) => s.user_id === opponentId);
+  return row ? row.score : null;
+}
+
+// "Klar"-tidpunkten är när den SENARE av de två poängraderna skrevs, inte
+// challenge.created_at (som bara är när utmaningen skapades, ofta långt
+// innan matchen faktiskt avgjordes).
+function completedAtOf(challenge) {
+  const times = (challenge.blixt_scores ?? [])
+    .map((s) => new Date(s.created_at).getTime())
+    .filter((t) => !Number.isNaN(t));
+  return times.length > 0 ? Math.max(...times) : new Date(challenge.created_at).getTime();
 }
 
 // Slår ihop flera samtidiga utmaningar mot samma motståndare inom en
@@ -76,7 +100,7 @@ function WordChips({ words, variant }) {
   );
 }
 
-function ResultCard({ challenge, userId }) {
+function ResultCard({ challenge, userId, onDismiss }) {
   const opponentName = opponentNameOf(challenge, userId);
   const { mine, theirs } = scoresOf(challenge, userId);
   const myScore = mine?.score ?? 0;
@@ -90,7 +114,10 @@ function ResultCard({ challenge, userId }) {
     <div style={styles.resultCard}>
       <div style={styles.resultHeader}>
         <span>{opponentName}</span>
-        <span style={{ color: verdictColor, fontWeight: 700 }}>{verdict}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <span style={{ color: verdictColor, fontWeight: 700 }}>{verdict}</span>
+          <button onClick={() => onDismiss(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
+        </div>
       </div>
 
       <div style={styles.scoreBars}>
@@ -178,36 +205,61 @@ function TabButton({ active, onClick, children }) {
   );
 }
 
+function ScoreBadge({ score }) {
+  if (score == null) return null;
+  return <span style={styles.scoreBadge}>{score}p</span>;
+}
+
 // En rads knappar beror på vilken av de två delstatusarna som slogs ihop
 // till samma sektion (PÅGÅENDE: din tur / motståndarens tur, VÄNTANDE:
 // väntar på ditt svar / väntar på motståndarens svar) — avgörs per rad här
 // istället för att hålla fyra separata sektioner som förut. Samma mönster
 // som SkrammelpajScreen.jsx.
 function ongoingActions(challenge, userId, onPlay, onDelete) {
+  const badge = <ScoreBadge score={opponentScoreOf(challenge, userId)} />;
   return classifyChallenge(challenge, userId) === "your_turn"
     ? (
       <>
+        {badge}
         <button onClick={() => onPlay(challenge)} style={styles.smallButton}>Spela</button>
         <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
       </>
     )
-    : <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>;
+    : (
+      <>
+        {badge}
+        <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
+      </>
+    );
 }
 
 function waitingActions(challenge, userId, onRespond, onDelete) {
+  const badge = <ScoreBadge score={opponentScoreOf(challenge, userId)} />;
   return classifyChallenge(challenge, userId) === "needs_response"
     ? (
       <>
+        {badge}
         <button onClick={() => onRespond(challenge.id, true)} style={styles.smallButton}>Anta</button>
-        <button onClick={() => onRespond(challenge.id, false)} style={styles.smallButtonMuted}>Ignorera</button>
+        <button onClick={() => onRespond(challenge.id, false)} style={styles.smallButtonMuted}>Nobba</button>
         <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
       </>
     )
-    : <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>;
+    : (
+      <>
+        {badge}
+        <button onClick={() => onDelete(challenge.id)} style={styles.smallButtonMuted}>Ta bort</button>
+      </>
+    );
 }
 
-export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPlayNew, onDelete, onLeaderboard, onBack }) {
+export default function BlixtScreen({
+  user, challenges, error, onClearError,
+  onRespond, onPlay, onChallengeFriend, onChallengeRandom, onPlayCpu,
+  onDelete, onLeaderboard, onRules, onBack,
+}) {
   const [tab, setTab] = useState("open");
+  const [showNewMatchModal, setShowNewMatchModal] = useState(false);
+  const [dismissedIds, setDismissedIds] = useState(() => loadDismissedIds(BLIXT_DISMISSED_STORAGE_PREFIX, user.id));
 
   const openCount = openChallengeCount(challenges, user.id);
   const atCap = openCount >= BLIXT_MAX_OPEN_CHALLENGES;
@@ -218,7 +270,11 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
     if (classifyChallenge(c, user.id) === "completed") return false;
     return now - new Date(c.created_at).getTime() < OPEN_CHALLENGE_VISIBLE_MS;
   });
-  const completed = challenges.filter((c) => classifyChallenge(c, user.id) === "completed");
+  const completed = challenges.filter((c) => {
+    if (classifyChallenge(c, user.id) !== "completed") return false;
+    if (dismissedIds.has(c.id)) return false;
+    return now - completedAtOf(c) < BLIXT_COMPLETED_VISIBLE_MS;
+  });
 
   const ongoing = visibleOpen.filter((c) => {
     const status = classifyChallenge(c, user.id);
@@ -229,6 +285,16 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
     return status === "needs_response" || status === "waiting_opponent_response";
   });
 
+  const handleDismiss = (challengeId) => {
+    dismissMatch(BLIXT_DISMISSED_STORAGE_PREFIX, user.id, challengeId);
+    setDismissedIds((prev) => new Set(prev).add(challengeId));
+  };
+
+  const openNewMatchModal = () => {
+    onClearError();
+    setShowNewMatchModal(true);
+  };
+
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>⚡ Blixt</h2>
@@ -236,9 +302,25 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
         {openCount}/{BLIXT_MAX_OPEN_CHALLENGES} matcher pågår
       </div>
 
-      <button onClick={onPlayNew} disabled={atCap} style={{ ...styles.playButton, opacity: atCap ? 0.5 : 1 }}>
-        {atCap ? "Max antal matcher nått" : "Spela en blixt"}
-      </button>
+      {error && (
+        <div style={styles.errorBanner}>
+          {error}
+          <button onClick={onClearError} style={styles.errorDismiss}>✕</button>
+        </div>
+      )}
+
+      <button onClick={openNewMatchModal} style={styles.playButton}>Starta ny match</button>
+
+      {showNewMatchModal && (
+        <BlixtNewMatchModal
+          userId={user.id}
+          atCap={atCap}
+          onChallengeFriend={(id, name) => { setShowNewMatchModal(false); onChallengeFriend(id, name); }}
+          onChallengeRandom={() => { setShowNewMatchModal(false); onChallengeRandom(); }}
+          onPlayCpu={() => { setShowNewMatchModal(false); onPlayCpu(); }}
+          onClose={() => setShowNewMatchModal(false)}
+        />
+      )}
 
       <div style={styles.tabRow}>
         <TabButton active={tab === "open"} onClick={() => setTab("open")}>Ej spelade</TabButton>
@@ -303,9 +385,10 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
           {completed.length > 0 && (
             <div style={styles.section}>
               <div style={styles.sectionTitle}>Avslutade matcher</div>
+              <div style={styles.sectionNote}>Döljs automatiskt ett dygn efter att matchen avgjorts.</div>
               <div style={styles.list}>
                 {completed.map((c) => (
-                  <ResultCard key={c.id} challenge={c} userId={user.id} />
+                  <ResultCard key={c.id} challenge={c} userId={user.id} onDismiss={handleDismiss} />
                 ))}
               </div>
             </div>
@@ -315,6 +398,7 @@ export default function BlixtScreen({ user, challenges, onRespond, onPlay, onPla
 
       <div style={styles.navRow}>
         <button onClick={onLeaderboard} style={styles.navButton}>Topplista</button>
+        <button onClick={onRules} style={styles.navButton}>Regler</button>
         <button onClick={onBack} style={styles.navButton}>Till start</button>
       </div>
     </div>
@@ -326,6 +410,14 @@ const styles = {
     minHeight: "100dvh", background: T.bg, color: T.text, fontFamily: "system-ui, sans-serif",
     padding: "1.5rem", display: "flex", flexDirection: "column", alignItems: "center",
     gap: "0.8rem", textAlign: "center",
+  },
+  errorBanner: {
+    width: "100%", maxWidth: 400, display: "flex", alignItems: "center", justifyContent: "space-between",
+    gap: "0.6rem", padding: "0.6rem 0.9rem", borderRadius: 10, background: T.surface,
+    border: `1px solid ${T.accent2}`, color: T.accent2, fontSize: "0.85rem", textAlign: "left",
+  },
+  errorDismiss: {
+    background: "none", border: "none", color: T.accent2, fontSize: "0.9rem", cursor: "pointer", padding: 0,
   },
   playButton: {
     padding: "0.8rem 1.2rem", borderRadius: 10, border: "none",
@@ -347,7 +439,11 @@ const styles = {
     display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0.75rem",
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`,
   },
-  rowActions: { display: "flex", gap: "0.4rem" },
+  rowActions: { display: "flex", alignItems: "center", gap: "0.4rem" },
+  scoreBadge: {
+    color: T.muted, fontSize: "0.78rem", fontWeight: 700, background: T.bg,
+    border: `1px solid ${T.border}`, borderRadius: 999, padding: "0.15rem 0.5rem",
+  },
   group: {
     display: "flex", flexDirection: "column", gap: "0.3rem",
     background: T.surface, borderRadius: 6, border: `1px solid ${T.border}`, overflow: "hidden",

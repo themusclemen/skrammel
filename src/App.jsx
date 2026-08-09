@@ -18,6 +18,7 @@ import {
   fetchMyChallenges, classifyChallenge, deleteChallenge,
   applyPendingExpirations as applyPendingBlixtExpirations,
 } from "./api/blixt.js";
+import { generateBlixtCpuResult } from "./game/blixtCpu.js";
 import {
   createChallenge as createSkrammelpajChallenge,
   respondToChallenge as respondToSkrammelpajChallenge,
@@ -50,7 +51,6 @@ import BlixtWordsAdminScreen from "./screens/BlixtWordsAdminScreen.jsx";
 import FriendsScreen from "./screens/FriendsScreen.jsx";
 import FriendDetailScreen from "./screens/FriendDetailScreen.jsx";
 import BlixtScreen from "./screens/BlixtScreen.jsx";
-import BlixtChooseOpponentScreen from "./screens/BlixtChooseOpponentScreen.jsx";
 import BlixtResultScreen from "./screens/BlixtResultScreen.jsx";
 import BlixtLeaderboardScreen from "./screens/BlixtLeaderboardScreen.jsx";
 import SkrammelpajScreen from "./screens/SkrammelpajScreen.jsx";
@@ -124,19 +124,17 @@ export default function App() {
   // src/api/friends.js. Bekräftelsen (FriendInviteModal) är det som
   // faktiskt skapar vänskapsraden, inte länken i sig.
   const [pendingInvite, setPendingInvite] = useState(() => parseInviteFromLocation());
-  // Blixtpussel v2 (async 1-mot-1-utmaning, se api/blixt.js): oriktad runda
-  // pågår / väntar på mottagarval / opponenten spelar en accepterad
-  // utmaning / opponentens resultat efteråt.
+  // Blixtpussel v2 (async 1-mot-1-utmaning, se api/blixt.js): motståndaren
+  // väljs numera INNAN rundan spelas (via BlixtNewMatchModal på hubben,
+  // se App.jsx nedan) — blixtPlayMode avgör vad som händer när rundan är
+  // klar: "friend"/"preset" skapar en utmaning mot en redan vald spelare,
+  // "random" slumpar (med samma försök-igen-vid-tak-logik som förut),
+  // "cpu" räknas aldrig till någon databas, bara ett lokalt resultat.
   const [blixtSourceWord, setBlixtSourceWord] = useState(null);
-  // Sant bara när rundan startas via hemskärmens nya förklaringsskärm
-  // (GameInfoScreen) — se handleStartBlixtFromInfo.
   const [blixtSkipIntro, setBlixtSkipIntro] = useState(false);
-  const [blixtDraftResult, setBlixtDraftResult] = useState(null); // { score, words, sourceWord }
-  // Satt när en blixt-runda startats för att utmana en specifik spelare
-  // direkt (t.ex. via "Utmana" på topplistan, se BlixtLeaderboardScreen) —
-  // förifyller den valda motståndaren på blixt-choose-skärmen istället för
-  // att spelaren måste hitta samma person i vän-/slumplistan igen.
-  const [blixtPresetOpponent, setBlixtPresetOpponent] = useState(null); // { id, name }
+  const [blixtPlayMode, setBlixtPlayMode] = useState(null); // "friend" | "random" | "preset" | "cpu"
+  const [blixtCommittedOpponent, setBlixtCommittedOpponent] = useState(null); // { id, name }
+  const [blixtError, setBlixtError] = useState(null);
   const [activeBlixtChallenge, setActiveBlixtChallenge] = useState(null);
   const [blixtResult, setBlixtResult] = useState(null); // { myScore, myWords, opponentScore, opponentName }
   const [myBlixtChallenges, setMyBlixtChallenges] = useState([]);
@@ -424,63 +422,41 @@ export default function App() {
     clearInviteUrl();
   }, [clearInviteUrl]);
 
-  const handlePlayBlixt = useCallback(async () => {
-    setBlixtPresetOpponent(null);
+  // Gemensam startpunkt för alla tre sätten att starta en ny Blixt-runda
+  // (vän/slump/CPU, se BlixtNewMatchModal, plus "Utmana" på topplistan/
+  // vänsidan) — mode avgör vad handleBlixtPlayFinish gör när rundan är klar.
+  const startBlixtRound = useCallback(async (mode, opponent = null) => {
+    setBlixtError(null);
+    setBlixtSkipIntro(false);
+    setBlixtPlayMode(mode);
+    setBlixtCommittedOpponent(opponent);
     const word = await pickBlixtWord(getDictionary());
     setBlixtSourceWord(word);
     setScreen("blixt-play");
   }, []);
 
-  // Hemskärmens "Blixt-Duell"-knapp går via en förklaringsskärm
-  // (GameInfoScreen) innan själva rundan — skipIntro=true på GameScreen
-  // efteråt så spelaren inte förklaras samma regler två gånger i rad.
-  const handleStartBlixtFromInfo = useCallback(async () => {
-    setBlixtSkipIntro(true);
-    await handlePlayBlixt();
-  }, [handlePlayBlixt]);
+  const handleChallengeFriendChoice = useCallback((opponentId, opponentName) => {
+    startBlixtRound("friend", { id: opponentId, name: opponentName });
+  }, [startBlixtRound]);
 
-  // Blixt-hubbens egna "Spela en blixt"-knapp går INTE via
-  // förklaringsskärmen (spelaren är redan inne i Blixt) — nollställer
-  // skipIntro ifall den råkat stå kvar sant från ett tidigare, avbrutet
-  // info-skärm-flöde.
-  const handlePlayBlixtFromHub = useCallback(async () => {
-    setBlixtSkipIntro(false);
-    await handlePlayBlixt();
-  }, [handlePlayBlixt]);
+  const handleChallengeRandomChoice = useCallback(() => {
+    startBlixtRound("random");
+  }, [startBlixtRound]);
 
-  // Utmana direkt från topplistan (global eller vänner, se
-  // BlixtLeaderboardScreen) — samma flöde som "Spela en blixt", men
-  // motståndaren är redan vald när blixt-choose-skärmen visas efteråt.
-  const handleChallengeFromLeaderboard = useCallback(async (opponentId, opponentName) => {
-    setBlixtSkipIntro(false);
-    setBlixtPresetOpponent({ id: opponentId, name: opponentName });
-    const word = await pickBlixtWord(getDictionary());
-    setBlixtSourceWord(word);
-    setScreen("blixt-play");
-  }, []);
+  const handlePlayBlixtCpu = useCallback(() => {
+    startBlixtRound("cpu");
+  }, [startBlixtRound]);
 
-  const handleBlixtPlayFinish = useCallback((score, words) => {
-    setBlixtDraftResult({ score, words, sourceWord: blixtSourceWord });
-    setScreen("blixt-choose");
-  }, [blixtSourceWord]);
-
-  const handleChallengeFriend = useCallback(async (opponentId, opponentName) => {
-    if (!user || !blixtDraftResult) return;
-    const name = displayName ?? user.email.split("@")[0];
-    await createChallenge(
-      user.id, name, opponentId, opponentName,
-      blixtDraftResult.sourceWord, blixtDraftResult.score, blixtDraftResult.words
-    );
-    await refreshBlixtChallenges();
-    setBlixtDraftResult(null);
-    setBlixtPresetOpponent(null);
-    setScreen("blixt-hub");
-  }, [user, displayName, blixtDraftResult, refreshBlixtChallenges]);
+  // Utmana direkt från topplistan eller en väns detaljsida — motståndaren
+  // är redan känd, så det blir samma "committed"-flöde som att välja en
+  // vän i BlixtNewMatchModal.
+  const handleChallengeFromLeaderboard = useCallback((opponentId, opponentName) => {
+    startBlixtRound("preset", { id: opponentId, name: opponentName });
+  }, [startBlixtRound]);
 
   // Slumpar en motståndare och försöker skapa utmaningen; om insert avvisas
   // (mottagarens 20-tak nått) provas en ny kandidat, upp till 5 försök.
-  const handleChallengeRandom = useCallback(async () => {
-    if (!user || !blixtDraftResult) return;
+  const submitBlixtRandomChallenge = useCallback(async (score, words) => {
     const name = displayName ?? user.email.split("@")[0];
     const openOpponentIds = myBlixtChallenges
       .filter((c) => c.status === "pending" || c.status === "accepted")
@@ -493,25 +469,53 @@ export default function App() {
       try {
         await createChallenge(
           user.id, name, candidate.opponentId, candidate.opponentName,
-          blixtDraftResult.sourceWord, blixtDraftResult.score, blixtDraftResult.words
+          blixtSourceWord, score, words
         );
         await refreshBlixtChallenges();
-        setBlixtDraftResult(null);
-        setBlixtPresetOpponent(null);
-        setScreen("blixt-hub");
-        return;
+        return true;
       } catch {
         excludeIds.push(candidate.opponentId);
       }
     }
-    throw new Error("Hittade ingen ledig motståndare just nu, försök igen senare.");
-  }, [user, displayName, blixtDraftResult, myBlixtChallenges, refreshBlixtChallenges]);
+    return false;
+  }, [user, displayName, blixtSourceWord, myBlixtChallenges, refreshBlixtChallenges]);
 
-  const handleSkipBlixtChallenge = useCallback(() => {
-    setBlixtDraftResult(null);
-    setBlixtPresetOpponent(null);
-    setScreen("blixt-hub");
-  }, []);
+  // Motståndaren är redan vald (mode "friend"/"preset") INNAN rundan
+  // spelas, till skillnad från det gamla flödet där man spelade en
+  // oriktad runda och valde mottagare efteråt — se BlixtNewMatchModal.
+  // "cpu" skapar aldrig någon databasrad, bara ett lokalt jämförelseresultat.
+  const handleBlixtPlayFinish = useCallback(async (score, words) => {
+    if (blixtPlayMode === "cpu") {
+      const cpu = generateBlixtCpuResult(blixtSourceWord, getDictionary());
+      setBlixtResult({ myScore: score, myWords: words, opponentScore: cpu.score, opponentName: "CPU" });
+      setScreen("blixt-result");
+      return;
+    }
+
+    if (!user) { setScreen("home"); return; }
+    const name = displayName ?? user.email.split("@")[0];
+
+    if (blixtPlayMode === "friend" || blixtPlayMode === "preset") {
+      try {
+        await createChallenge(
+          user.id, name, blixtCommittedOpponent.id, blixtCommittedOpponent.name,
+          blixtSourceWord, score, words
+        );
+        await refreshBlixtChallenges();
+      } catch {
+        setBlixtError(`${blixtCommittedOpponent.name} har redan för många pågående matcher.`);
+      }
+      setBlixtCommittedOpponent(null);
+      setScreen("blixt-hub");
+      return;
+    }
+
+    if (blixtPlayMode === "random") {
+      const succeeded = await submitBlixtRandomChallenge(score, words);
+      if (!succeeded) setBlixtError("Hittade ingen ledig motståndare just nu, försök igen senare.");
+      setScreen("blixt-hub");
+    }
+  }, [blixtPlayMode, blixtSourceWord, blixtCommittedOpponent, user, displayName, refreshBlixtChallenges, submitBlixtRandomChallenge]);
 
   const handleRespondToChallenge = useCallback(async (challengeId, accept) => {
     await respondToChallenge(challengeId, accept);
@@ -578,7 +582,7 @@ export default function App() {
 
   // Slumpar en motståndare och försöker skapa utmaningen; om insert avvisas
   // (mottagarens 20-tak nått) provas en ny kandidat, upp till 5 försök —
-  // samma mönster som Blixts handleChallengeRandom.
+  // samma mönster som Blixts submitBlixtRandomChallenge.
   const handleChallengeSkrammelpajRandom = useCallback(async () => {
     if (!user) return;
     const name = displayName ?? user.email.split("@")[0];
@@ -857,11 +861,15 @@ export default function App() {
   }
 
   if (screen === "blixt-info") {
+    // Inloggade spelare skickas till hubben (nya matcher skapas numera
+    // därifrån, se BlixtNewMatchModal) — gäster har ingen hubb att gå
+    // till, så deras "Starta" spelar direkt en lokal CPU-runda istället.
+    const startBlixtInfoAction = user ? goToBlixt : handlePlayBlixtCpu;
     if (blixtSkipInfo && !blixtShowFullInfo) {
       return (
         <QuickStartModal
           title="⚡ Blixt-Duell"
-          onStart={handleStartBlixtFromInfo}
+          onStart={startBlixtInfoAction}
           onBack={() => navigate("home")}
           onInstructions={() => setBlixtShowFullInfo(true)}
         />
@@ -871,12 +879,11 @@ export default function App() {
       <GameInfoScreen
         title="⚡ Blixt-Duell"
         description={[
-          "Du spelar en snabb 2-minutersrunda själv och försöker hitta så många ord som möjligt ur ett slumpat ord.",
-          "Efteråt utmanar du en vän eller en slumpad motståndare med din poäng — den som hittar flest poäng vinner duellen.",
+          "Du spelar en snabb 2-minutersrunda och försöker hitta så många ord som möjligt ur ett slumpat ord.",
+          "Utmana en vän eller en slumpad motståndare med din poäng — eller värm upp mot CPU. Den som hittar flest poäng vinner duellen.",
         ]}
         onBack={() => navigate("home")}
-        onStart={handleStartBlixtFromInfo}
-        secondaryAction={user ? { label: "📋 Mina matcher", onClick: goToBlixt } : undefined}
+        onStart={startBlixtInfoAction}
         skipCheckboxLabel="Visa inte denna text igen"
         skipChecked={blixtSkipInfo}
         onSkipChange={(checked) => {
@@ -902,34 +909,21 @@ export default function App() {
     );
   }
 
-  if (screen === "blixt-choose" && blixtDraftResult) {
-    // Soloomgången kan spelas som gäst, men en duell behöver ett konto att
-    // knyta utmaningen till. Draften ligger kvar i state under inloggningen,
-    // så när user-lyssnaren (se ovan) fyller i user renderas skärmen nedanför
-    // automatiskt utan någon separat "återuppta"-logik.
-    if (!user) return <AuthScreen onDone={() => {}} />;
-    return (
-      <BlixtChooseOpponentScreen
-        user={user}
-        draftResult={blixtDraftResult}
-        presetOpponent={blixtPresetOpponent}
-        onChallengeFriend={handleChallengeFriend}
-        onChallengeRandom={handleChallengeRandom}
-        onSkip={handleSkipBlixtChallenge}
-      />
-    );
-  }
-
   if (screen === "blixt-hub" && user) {
     return (
       <BlixtScreen
         user={user}
         challenges={myBlixtChallenges}
+        error={blixtError}
+        onClearError={() => setBlixtError(null)}
         onRespond={handleRespondToChallenge}
         onPlay={handlePlayAcceptedChallenge}
-        onPlayNew={handlePlayBlixtFromHub}
+        onChallengeFriend={handleChallengeFriendChoice}
+        onChallengeRandom={handleChallengeRandomChoice}
+        onPlayCpu={handlePlayBlixtCpu}
         onDelete={handleDeleteChallenge}
         onLeaderboard={goToBlixtLeaderboard}
+        onRules={goToBlixtInfo}
         onBack={() => navigate("home")}
       />
     );
@@ -966,7 +960,7 @@ export default function App() {
         opponentScore={blixtResult.opponentScore}
         opponentName={blixtResult.opponentName}
         onHome={() => navigate("home")}
-        onBlixt={goToBlixt}
+        onBlixt={user ? goToBlixt : goToBlixtInfo}
       />
     );
   }
@@ -1189,7 +1183,7 @@ export default function App() {
         pendingFriendRequestCount={incomingFriendRequests.length}
         onPlay={() => navigate("daily-info")}
         onPlayHets={goToHetsInfo}
-        onPlayBlixt={goToBlixtInfo}
+        onPlayBlixt={user ? goToBlixt : goToBlixtInfo}
         onPlaySkrammelpaj={() => navigate("skrammelpaj-info")}
         onTopplistor={() => navigate("topplistor")}
         onFriends={() => navigate("friends")}

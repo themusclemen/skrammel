@@ -52,25 +52,24 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   tabell i Supabase. "Utmana" delar en inbjudan via samma delnings-UI som
   resultatdelning; ingen ny spellogik. Byggd 2026-07-19.
 
-- **Blixtpussel v2:** async 1-mot-1-utmaningsspel mellan spelare,
+- **Blixt-Duell:** async 1-mot-1-utmaningsspel mellan spelare,
   separat från dagens delade ord — eget 8-bokstavsord, 2 minuter.
-  Spela-först-flöde (spela en oriktad runda, välj sen vem du utmanar
-  med resultatet), kan utmana vänner, en slumpad motståndare, eller
-  vem som helst på Blixt-topplistan (även icke-vänner), anta/ignorera
-  som egna handlingar, max 20 matcher på gång samtidigt, vinst/förlust-
-  stats per motståndare med orddiff (vilka ord ni båda hittade vs bara
-  en av er). Oavslutade utmaningar kan raderas. En "tiden är ute"-modal
-  visar vinst/förlust direkt när en runda tar slut, innan facit. Flera
-  samtidiga matcher mot samma motståndare visas hopfällt (namn + antal)
-  i "Ej spelade"-listan. Full plan i
-  `~/.claude/plans/floating-sniffing-thimble.md` — se `architecture.md`
-  under "Blixtpussel v2" för byggstatus. Grundflödet byggt 2026-07-19,
-  resultatflik/delete/tiden-är-ute-modal/hopfällda rader/topplista
-  byggda och applicerade mot `skrammel-beta` 2026-07-21. `npm run build`
-  grönt, committat och pushat. Källorden dras ur en admin-kuraterad
-  pool (`/admin/blixt`, `blixt_words`-tabell) istället för att slumpas
-  rent klient-sidan — se `architecture.md` under "Ordkuration"/
-  "Ordlängd ändrad till 8" för status.
+  Motståndare väljs FÖRE spel via "Starta ny match" på hubben
+  (`BlixtNewMatchModal`): vän, slumpad motståndare, eller CPU (ny,
+  lokal träning utan databasrad). Kan även utmana vem som helst på
+  Blixt-topplistan. Anta/nobba som egna handlingar, max 20 matcher på
+  gång samtidigt (gäller inte CPU), vinst/förlust-stats per motståndare
+  med orddiff (vilka ord ni båda hittade vs bara en av er) — och
+  motståndarens poäng syns numera redan innan man själv spelat.
+  Oavslutade utmaningar kan raderas på riktigt; avslutade matcher döljs
+  (inte raderas — topplistan behöver raderna) automatiskt efter ett
+  dygn eller manuellt. En "tiden är ute"-modal visar vinst/förlust
+  direkt när en runda tar slut, innan facit. Flera samtidiga matcher mot
+  samma motståndare visas hopfällt (namn + antal) i "Ej spelade"-listan.
+  Se `architecture.md` under "Blixt-Duell — flödet vänt" (2026-08-09)
+  för det aktuella flödet, och "Blixtpussel v2" för hur det ursprungligen
+  byggdes. Källorden dras ur en admin-kuraterad pool (`/admin/blixt`,
+  `blixt_words`-tabell) istället för att slumpas rent klient-sidan.
 - **Blixt-topplista:** Global/vän-flikar, rankar efter flest vunna
   matcher totalt (ny `security definer`-SQL-funktion
   `blixt_leaderboard()`, kringgår RLS men exponerar bara summerade

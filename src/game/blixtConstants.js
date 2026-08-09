@@ -11,3 +11,10 @@ export const BLIXT_MAX_OPEN_CHALLENGES = 20;
 export const BLIXT_ACCEPT_DEADLINE_HOURS = 24;
 // localStorage-nyckel för "Visa inte denna text igen" på förklaringsskärmen.
 export const BLIXT_SKIP_INFO_KEY = "skrammel_blixt_skip_info";
+// En avslutad match döljs automatiskt ur "Resultat"-listan ett dygn efter
+// att den blev klar (bara döljs, raderas inte — se dismissedMatches.js och
+// BlixtScreen.jsx för varför: topplistan räknar fortfarande raden).
+export const BLIXT_COMPLETED_VISIBLE_MS = 24 * 60 * 60 * 1000;
+// localStorage-nyckel-prefix (+ userId) för matcher spelaren själv dolt
+// manuellt innan dygnsgränsen ovan — se dismissedMatches.js.
+export const BLIXT_DISMISSED_STORAGE_PREFIX = "skrammel_blixt_dismissed_";

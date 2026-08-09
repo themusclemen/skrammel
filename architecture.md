@@ -752,3 +752,60 @@ flera omgångar samma dag:
   (bara en `screen`-sträng i App.jsx), så "tillbaka" landar inte alltid
   exakt där man kom ifrån. Medvetet accepterad begränsning, inte byggd
   om till en riktig historik-stack.
+
+## Blixt-Duell — flödet vänt: motståndare väljs FÖRE spel (2026-08-09)
+
+Ersätter "spela-först-flödet" beskrivet ovan (avsnitt "Blixtpussel v2").
+Hemskärmens **"Blixt-Duell"-knapp går nu direkt till `BlixtScreen.jsx`**
+(hubben) för inloggade spelare, istället för via `GameInfoScreen`
+(reglerna) → spela → välj mottagare. `GameInfoScreen` (med sin
+"Visa inte denna text igen"-checkbox, se `QuickStartModal`) nås numera
+via en **"Regler"-knapp på hubben**, och dess "Starta"-knapp går bara
+tillbaka till hubben (`goToBlixt`) — själva matchskapandet sker alltid
+via hubbens nya knapp. Gäster (som inte har någon hubb) landar
+fortfarande på `GameInfoScreen`, men "Starta" där startar direkt en
+lokal CPU-runda (se nedan) istället.
+
+- **`BlixtNewMatchModal.jsx`** (ny) visas vid tryck på hubbens
+  **"Starta ny match"**-knapp (ersätter gamla "Spela en blixt"): tre val
+  — **Utmana en vän** (samma vänlista som förut, nu i modalen istället
+  för på en efterhandsskärm), **Slumpmässig motståndare**, eller
+  **Spela mot CPU** (ny). Motståndaren är alltså känd INNAN
+  `pickBlixtWord()` ens anropas — `App.jsx`s `startBlixtRound(mode,
+  opponent)` sätter `blixtPlayMode`/`blixtCommittedOpponent`, hämtar
+  källordet och går till `blixt-play`. `handleBlixtPlayFinish` grenar på
+  `blixtPlayMode` när rundan är klar: `"friend"`/`"preset"` skapar
+  utmaningen direkt (samma `createChallenge` som förut, bara tidigare i
+  flödet), `"random"` slumpar med samma försök-igen-vid-tak-logik som
+  innan, `"cpu"` skriver ALDRIG till databasen. `BlixtChooseOpponentScreen.jsx`
+  (den gamla efterhandsskärmen) är borttagen — inget anrop till den
+  längre. "Utmana" från topplistan/en väns detaljsida går via samma
+  `startBlixtRound("preset", …)`.
+- **CPU-läge** (`src/game/blixtCpu.js`, `generateBlixtCpuResult`): till
+  skillnad från Skrammelpajs turordnings-CPU (som faktiskt "spelar",
+  ett drag i taget) är Blixt inte turbaserat — båda spelarna löser
+  samma källord oberoende av varandra. CPU:ns "resultat" är därför bara
+  en slumpad delmängd av `findWordsInSource(sourceWord)`, stor nog att
+  motsvara 25–65 % av total möjlig poäng (`totalScore` från
+  `scoring.js`, med pangram-bonus precis som en riktig spelares poäng).
+  Ingen databasrad skapas — spelas via `BlixtResultScreen` precis som en
+  vanlig `blixt-respond-play`-runda, bara med `opponentName: "CPU"`.
+  Fungerar även som gäst och även vid 20-matcherstaket.
+- **Poäng visas nu innan man själv spelat** (medvetet val, uttryckligt
+  efterfrågat — avviker från hur t.ex. Skrammelpaj håller allt dolt):
+  eftersom skaparen alltid redan spelat sin runda när utmaningen skapas,
+  visar `BlixtScreen.jsx` motståndarens poäng (`opponentScoreOf`) redan
+  på PÅGÅENDE/VÄNTANDE-rader, inte bara på avslutade matcher.
+  "Ignorera" döptes om till **"Nobba"**.
+- **Avslutade matcher döljs automatiskt ett dygn efter att de avgjorts**
+  (`BLIXT_COMPLETED_VISIBLE_MS`, `completedAtOf` = senaste
+  `blixt_scores.created_at`) — och kan döljas manuellt direkt via en ny
+  "Ta bort"-knapp på `ResultCard`. **Viktigt:** det här är bara en
+  klientsidig döljning (`src/game/dismissedMatches.js`,
+  `localStorage`-nyckel per användare), INTE en databasradering — RLS
+  tillåter fortfarande bara att radera oavslutade matcher, medvetet,
+  eftersom `blixt_leaderboard()` räknar vinster/förluster live från
+  `blixt_challenges`/`blixt_scores`. Att faktiskt radera en avslutad
+  matchrad skulle krympa topplistans historik. Beslutat med användaren
+  innan bygget (se AskUserQuestion-svar samma session).
+- Ingen migration behövdes — inga schemaändringar, bara klientlogik.
