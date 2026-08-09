@@ -27,10 +27,11 @@ export default function TopplistorScreen({ onDailyLeaderboard, onHetsLeaderboard
         <div style={styles.cardDesc}>Rankat efter flest vunna dueller totalt</div>
       </button>
 
-      <button onClick={onSkrammelpajLeaderboard} style={styles.card}>
+      {/* Bokstavs-Duell tillfälligt bortkommenterad, se HomeScreen.jsx */}
+      {/* <button onClick={onSkrammelpajLeaderboard} style={styles.card}>
         <div style={styles.cardTitle}>🔤 Bokstavs-Duell</div>
         <div style={styles.cardDesc}>Rankat efter flest vunna dueller totalt</div>
-      </button>
+      </button> */}
 
       <button onClick={onBack} style={styles.backButton}>Till start</button>
     </div>

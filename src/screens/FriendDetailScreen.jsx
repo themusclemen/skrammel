@@ -41,7 +41,8 @@ export default function FriendDetailScreen({
       <div style={styles.section}>
         <div style={styles.sectionTitle}>Utmana</div>
         <button onClick={onChallengeBlixt} style={styles.actionButton}>⚡ Utmana i Blixt-Duell</button>
-        <button onClick={onChallengeSkrammelpaj} style={styles.actionButton}>🔤 Utmana i Bokstavs-Duell</button>
+        {/* Bokstavs-Duell tillfälligt bortkommenterad, se HomeScreen.jsx */}
+        {/* <button onClick={onChallengeSkrammelpaj} style={styles.actionButton}>🔤 Utmana i Bokstavs-Duell</button> */}
       </div>
 
       <div style={styles.section}>
@@ -52,10 +53,11 @@ export default function FriendDetailScreen({
       <div style={styles.section}>
         <div style={styles.sectionTitle}>Statistik</div>
         <StatRow label="⚡ Blixt-Duell" stats={blixtStats} ongoing={blixtOngoing} onGoToMatches={onGoToBlixt} />
-        <StatRow
+        {/* Bokstavs-Duell tillfälligt bortkommenterad, se HomeScreen.jsx */}
+        {/* <StatRow
           label="🔤 Bokstavs-Duell" stats={skrammelpajStats} ongoing={skrammelpajOngoing}
           onGoToMatches={onGoToSkrammelpaj}
-        />
+        /> */}
       </div>
 
       <div style={styles.navRow}>

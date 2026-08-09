@@ -57,14 +57,17 @@ export default function HomeScreen({
           Blixt-Duell{blixtHasUpdateOnly && " •"}
         </button>
       </div>
-      <div style={styles.playButtonBorder}>
+      {/* Bokstavs-Duell tillfälligt bortkommenterad — förenklar hemskärmen
+          medan de tre andra spelen finputsas. Se HomeScreen.jsx-historik för
+          att slå på igen. */}
+      {/* <div style={styles.playButtonBorder}>
         <button
           onClick={skrammelpajNeedsMove ? onGoToSkrammelpaj : onPlaySkrammelpaj}
           style={{ ...styles.playButton, animation: skrammelpajNeedsMove ? "skrammelBlink 1.2s steps(1, end) infinite" : "none" }}
         >
           Bokstavs-Duell{skrammelpajHasUpdateOnly && " •"}
         </button>
-      </div>
+      </div> */}
       <div style={styles.secondaryRow}>
         <button onClick={onTopplistor} style={styles.secondaryButton}>Topplistor</button>
         {user && (
