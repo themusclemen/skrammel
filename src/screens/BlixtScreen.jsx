@@ -197,14 +197,6 @@ function ChallengeGroup({ opponentName, challenges, renderActions, alwaysExpande
   );
 }
 
-function TabButton({ active, onClick, children }) {
-  return (
-    <button onClick={onClick} style={{ ...styles.tabButton, ...(active ? styles.tabButtonActive : null) }}>
-      {children}
-    </button>
-  );
-}
-
 function ScoreBadge({ score }) {
   if (score == null) return null;
   return <span style={styles.scoreBadge}>{score}p</span>;
@@ -257,7 +249,6 @@ export default function BlixtScreen({
   onRespond, onPlay, onChallengeFriend, onChallengeRandom, onPlayCpu,
   onDelete, onLeaderboard, onRules, onBack,
 }) {
-  const [tab, setTab] = useState("open");
   const [showNewMatchModal, setShowNewMatchModal] = useState(false);
   const [dismissedIds, setDismissedIds] = useState(() => loadDismissedIds(BLIXT_DISMISSED_STORAGE_PREFIX, user.id));
 
@@ -298,9 +289,6 @@ export default function BlixtScreen({
   return (
     <div style={styles.page}>
       <h2 style={{ margin: 0, color: T.accent }}>⚡ Blixt</h2>
-      <div style={{ color: T.muted, fontSize: "0.85rem" }}>
-        {openCount}/{BLIXT_MAX_OPEN_CHALLENGES} matcher pågår
-      </div>
 
       {error && (
         <div style={styles.errorBanner}>
@@ -322,78 +310,61 @@ export default function BlixtScreen({
         />
       )}
 
-      <div style={styles.tabRow}>
-        <TabButton active={tab === "open"} onClick={() => setTab("open")}>Ej spelade</TabButton>
-        <TabButton active={tab === "results"} onClick={() => setTab("results")}>Resultat</TabButton>
-      </div>
-
-      {tab === "open" && (
-        <>
-          {visibleOpen.length === 0 && (
-            <div style={{ color: T.muted }}>Inga öppna utmaningar just nu.</div>
-          )}
-
-          {ongoing.length > 0 && (
-            <Section title="PÅGÅENDE">
-              {groupByOpponent(ongoing, user.id).map((g) => (
-                <ChallengeGroup
-                  key={g.opponentId}
-                  opponentName={g.opponentName}
-                  challenges={g.challenges}
-                  renderActions={(c) => ongoingActions(c, user.id, onPlay, onDelete)}
-                  alwaysExpanded
-                />
-              ))}
-            </Section>
-          )}
-
-          {waitingToStart.length > 0 && (
-            <Section
-              title="VÄNTANDE"
-              note={`En obesvarad utmaning tas bort automatiskt om den inte antas inom ${BLIXT_ACCEPT_DEADLINE_HOURS} timmar.`}
-            >
-              {groupByOpponent(waitingToStart, user.id).map((g) => (
-                <ChallengeGroup
-                  key={g.opponentId}
-                  opponentName={g.opponentName}
-                  challenges={g.challenges}
-                  renderActions={(c) => waitingActions(c, user.id, onRespond, onDelete)}
-                />
-              ))}
-            </Section>
-          )}
-        </>
+      {visibleOpen.length === 0 && (
+        <div style={{ color: T.muted }}>Inga pågående matcher just nu.</div>
       )}
 
-      {tab === "results" && (
-        <>
-          {stats.length > 0 && (
-            <Section title="Vinst/förlust per motståndare">
-              {stats.map((s) => (
-                <div key={s.opponentId} style={styles.row}>
-                  <span>{s.opponentName}</span>
-                  <span style={{ color: T.muted, fontSize: "0.85rem" }}>{s.wins}V – {s.losses}F</span>
-                </div>
-              ))}
-            </Section>
-          )}
+      {ongoing.length > 0 && (
+        <Section title="PÅGÅENDE">
+          {groupByOpponent(ongoing, user.id).map((g) => (
+            <ChallengeGroup
+              key={g.opponentId}
+              opponentName={g.opponentName}
+              challenges={g.challenges}
+              renderActions={(c) => ongoingActions(c, user.id, onPlay, onDelete)}
+              alwaysExpanded
+            />
+          ))}
+        </Section>
+      )}
 
-          {completed.length === 0 && (
-            <div style={{ color: T.muted }}>Inga avslutade matcher än.</div>
-          )}
+      {waitingToStart.length > 0 && (
+        <Section
+          title="VÄNTANDE"
+          note={`En obesvarad utmaning tas bort automatiskt om den inte antas inom ${BLIXT_ACCEPT_DEADLINE_HOURS} timmar.`}
+        >
+          {groupByOpponent(waitingToStart, user.id).map((g) => (
+            <ChallengeGroup
+              key={g.opponentId}
+              opponentName={g.opponentName}
+              challenges={g.challenges}
+              renderActions={(c) => waitingActions(c, user.id, onRespond, onDelete)}
+            />
+          ))}
+        </Section>
+      )}
 
-          {completed.length > 0 && (
-            <div style={styles.section}>
-              <div style={styles.sectionTitle}>Avslutade matcher</div>
-              <div style={styles.sectionNote}>Döljs automatiskt ett dygn efter att matchen avgjorts.</div>
-              <div style={styles.list}>
-                {completed.map((c) => (
-                  <ResultCard key={c.id} challenge={c} userId={user.id} onDismiss={handleDismiss} />
-                ))}
-              </div>
+      {stats.length > 0 && (
+        <Section title="Vinst/förlust per motståndare">
+          {stats.map((s) => (
+            <div key={s.opponentId} style={styles.row}>
+              <span>{s.opponentName}</span>
+              <span style={{ color: T.muted, fontSize: "0.85rem" }}>{s.wins}V – {s.losses}F</span>
             </div>
-          )}
-        </>
+          ))}
+        </Section>
+      )}
+
+      {completed.length > 0 && (
+        <div style={styles.section}>
+          <div style={styles.sectionTitle}>Avslutade matcher</div>
+          <div style={styles.sectionNote}>Döljs automatiskt ett dygn efter att matchen avgjorts.</div>
+          <div style={styles.list}>
+            {completed.map((c) => (
+              <ResultCard key={c.id} challenge={c} userId={user.id} onDismiss={handleDismiss} />
+            ))}
+          </div>
+        </div>
       )}
 
       <div style={styles.navRow}>
@@ -423,12 +394,6 @@ const styles = {
     padding: "0.8rem 1.2rem", borderRadius: 10, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, cursor: "pointer", width: "100%", maxWidth: 320,
   },
-  tabRow: { display: "flex", gap: "0.4rem", width: "100%", maxWidth: 400 },
-  tabButton: {
-    flex: 1, padding: "0.5rem 0.9rem", borderRadius: 999, border: `1px solid ${T.border}`,
-    background: "transparent", color: T.muted, fontSize: "0.85rem", fontWeight: 600, cursor: "pointer",
-  },
-  tabButtonActive: { background: T.accent, borderColor: T.accent, color: "#121212" },
   section: { width: "100%", maxWidth: 400, display: "flex", flexDirection: "column", gap: "0.4rem" },
   sectionTitle: {
     color: T.accent, fontSize: "0.95rem", fontWeight: 800, letterSpacing: "0.04em", textAlign: "left",
