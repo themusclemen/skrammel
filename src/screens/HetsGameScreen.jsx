@@ -93,6 +93,18 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
     setFeedback(null);
   };
 
+  // Låter spelaren backa till en runda man redan klarat (nytt ord, samma
+  // längd) om man kört fast på nästa nivå — timeLeft nollställs INTE, till
+  // skillnad från en vanlig lyckad gissning, så det kostar fortfarande tid.
+  const handleGoBackLevel = () => {
+    if (round.length <= HETS_MIN_LETTERS) return;
+    const next = generateHetsRound(round.length - 1);
+    if (!next) return;
+    setRound(next);
+    setTappedIndices([]);
+    setFeedback(null);
+  };
+
   // Gissningen prövas automatiskt så fort ALLA bokstäver är intryckta —
   // spelaren ska inte behöva trycka Enter/OK när ordet redan är rätt (eller
   // fel; en full uppsättning bokstäver är alltid en färdig gissning, det
@@ -273,6 +285,16 @@ export default function HetsGameScreen({ personalBest, loggedIn, onFinish, onBac
             🔀 Blanda
           </button>
         </div>
+
+        {round.length > HETS_MIN_LETTERS && (
+          <button
+            className="skrammel-btn"
+            onClick={handleGoBackLevel}
+            style={styles.backLevelButton}
+          >
+            ⬅ Backa till {round.length - 1} bokstäver
+          </button>
+        )}
       </div>
     </div>
   );
@@ -340,6 +362,11 @@ const styles = {
   shuffleButton: {
     flex: 1, height: "2.8rem", borderRadius: 8, border: "none",
     background: T.accent, color: "#121212", fontWeight: 700, fontSize: "1.05rem", cursor: "pointer",
+    ...INTERACTIVE_STYLE,
+  },
+  backLevelButton: {
+    width: "100%", height: "2.4rem", marginTop: "0.6rem", borderRadius: 8, border: `1px solid ${T.border}`,
+    background: "transparent", color: T.muted, fontWeight: 600, fontSize: "0.85rem", cursor: "pointer",
     ...INTERACTIVE_STYLE,
   },
   navButton: {
