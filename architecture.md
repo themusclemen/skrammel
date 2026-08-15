@@ -761,6 +761,38 @@ flera omgångar samma dag:
   exakt där man kom ifrån. Medvetet accepterad begränsning, inte byggd
   om till en riktig historik-stack.
 
+## Streamlining av de tre andra spelen (2026-08-09)
+
+Innan Blixt-Duell-ombygget nedan bad användaren om att förenkla appen
+för att kunna finputsa Dagens Skrammel/Solo-Hets/Blixt-Duell i lugn och
+ro:
+
+- **Bokstavs-Duell tillfälligt bortkommenterad ur UI:t** (inte
+  raderad) — de tre synliga ingångarna (`HomeScreen.jsx`s spelknapp,
+  `TopplistorScreen.jsx`s topplistekort, `FriendDetailScreen.jsx`s
+  utmana-knapp + statistikrad) är inkommenterade med en kommentar som
+  pekar till varandra. Själva spellogiken, routingen i `App.jsx` och
+  databasen är helt orörda — att slå på igen är att ta bort
+  kommentarerna, ingen ombyggnad. Skäl: användaren ville "förenkla
+  lite och finputsa på de 3 andra spelen".
+- **`GameInfoScreen.jsx` fick en valfri "Visa inte denna text
+  igen"-checkbox** (`skipCheckboxLabel`/`skipChecked`/`onSkipChange`-
+  props, opt-in så Skrammel/Bokstavs-Duell är opåverkade). Ny
+  `src/components/QuickStartModal.jsx` (döpt om från
+  `HetsQuickStartModal.jsx` när samma mönster senare återanvändes för
+  Blixt, se nedan) visar en kompakt Starta/Tillbaka-ruta istället för
+  hela regeltexten när kryssrutan är ikryssad, med en "Instruktioner"-
+  länk tillbaka till fulla texten. Preferensen sparas i `localStorage`
+  per spel (`HETS_SKIP_INFO_KEY`/`BLIXT_SKIP_INFO_KEY` i respektive
+  `*Constants.js`, läst/skrivet via `src/game/uiPreferences.js`).
+- **Solo-Hets: knapp för att backa till föregående nivå.**
+  `HetsGameScreen.jsx` visar "⬅ Backa till N bokstäver" så fort
+  `round.length > HETS_MIN_LETTERS` — genererar ett NYTT ord på samma
+  (lägre) längd, nollställer gissningen, men rör INTE `timeLeft`
+  (till skillnad från en lyckad gissning, som alltid ger en ny full
+  klocka) — så det kostar fortfarande tid att backa. Varken
+  `highestCompletedLength` eller tiebreak-tiden påverkas.
+
 ## Blixt-Duell — flödet vänt: motståndare väljs FÖRE spel (2026-08-09)
 
 Ersätter "spela-först-flödet" beskrivet ovan (avsnitt "Blixtpussel v2").

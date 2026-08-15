@@ -99,7 +99,19 @@ bilda av bokstäverna i källordet, inom 5 minuter.
   topplista (`skrammelpaj_leaderboard()`), samma global/vän-mönster som
   Blixt. Byggd och applicerad mot `skrammel-beta` 2026-07-21, se
   `architecture.md` för fullständig historik och efterföljande
-  UX-fixar.
+  UX-fixar. **Tillfälligt bortkommenterad ur UI:t sedan 2026-08-09**
+  (spellogik/databas orörd) medan de tre andra spelen finputsas — se
+  "Streamlining av de tre andra spelen" i `architecture.md`.
+- **Solo-Hets:** ett fjärde spel, helt solo — datorn slumpar bokstäver
+  som bildar ett riktigt ord (start 3 bokstäver, +1 för varje klarad
+  runda), 30 sekunder per runda för att skriva VILKET giltigt ord som
+  helst av exakt de bokstäverna (inte bara datorns ursprungsord).
+  Poäng = högsta klarade bokstavslängd, delat avgörs av kortast total
+  tid. En inloggad spelares personbästa hämtas innan start och visas
+  som mål genom hela rundan. Sedan 2026-08-09 kan man **backa till
+  föregående nivå** (nytt ord, samma längd) om man kör fast — kostar
+  fortfarande tid, klockan nollställs inte. Byggd 2026-07-22, se
+  `architecture.md` för fullständig historik.
 - **Hemskärmens navigering omarbetad (2026-07-21):** alla tre spelen
   (Dagens Skrammel, Blixt-Duell, Bokstavs-Duell) går nu via en delad
   `GameInfoScreen` (regler + Tillbaka/Starta) innan man committar till
